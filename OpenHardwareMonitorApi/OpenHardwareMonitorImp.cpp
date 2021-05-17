@@ -52,7 +52,7 @@ namespace OpenHardwareMonitorApi
             return m_gpu_ati_usage;
     }
 
-    bool COpenHardwareMonitor::GetHardwareTemperature(IHardware^ hardware, float& temperature)
+    bool COpenHardwareMonitor::GetHardwareTemperature(IHardware^ hardware, float& temperature, System::String^ match)
     {
         temperature = -1;
         std::vector<float> all_temperature;
@@ -62,6 +62,12 @@ namespace OpenHardwareMonitorApi
             if (hardware->Sensors[i]->SensorType == SensorType::Temperature)
             {
                 float cur_temperture = Convert::ToDouble(hardware->Sensors[i]->Value);
+                if (!System::String::IsNullOrEmpty(match)) {
+                   if (match->Equals(hardware->Sensors[i]->Name)) {
+                        temperature = cur_temperture;
+                        return true;
+                    }
+                }
                 all_temperature.push_back(cur_temperture);
             }
         }
@@ -77,7 +83,7 @@ namespace OpenHardwareMonitorApi
         //如果没有找到温度传感器，则在SubHardware中寻找
         for (int i = 0; i < hardware->SubHardware->Length; i++)
         {
-            if (GetHardwareTemperature(hardware->SubHardware[i], temperature))
+            if (GetHardwareTemperature(hardware->SubHardware[i], temperature, match))
                 return true;
         }
         return false;
@@ -130,10 +136,6 @@ namespace OpenHardwareMonitorApi
             //查找硬件类型
             switch (computer->Hardware[i]->HardwareType)
             {
-            case HardwareType::Cpu:
-                if (m_cpu_temperature < 0)
-                    GetHardwareTemperature(computer->Hardware[i], m_cpu_temperature);
-                break;
             case HardwareType::GpuNvidia:
                 if (m_gpu_nvidia_temperature < 0)
                     GetHardwareTemperature(computer->Hardware[i], m_gpu_nvidia_temperature);
@@ -153,9 +155,26 @@ namespace OpenHardwareMonitorApi
             case HardwareType::Motherboard:
                 if (m_main_board_temperature < 0)
                     GetHardwareTemperature(computer->Hardware[i], m_main_board_temperature);
+                if (m_cpu_temperature < 0)
+                    GetHardwareTemperature(computer->Hardware[i], m_cpu_temperature, "PECI 0 Calibrated");
                 break;
             default:
                 break;
+            }
+        }
+        if (m_cpu_temperature < 0) {
+            for (int i = 0; i < computer->Hardware->Count; i++)
+            {
+                //查找硬件类型
+                switch (computer->Hardware[i]->HardwareType)
+                {
+                case HardwareType::Cpu:
+                    if (m_cpu_temperature < 0)
+                        GetHardwareTemperature(computer->Hardware[i], m_cpu_temperature);
+                    break;
+                default:
+                    break;
+                }
             }
         }
     }

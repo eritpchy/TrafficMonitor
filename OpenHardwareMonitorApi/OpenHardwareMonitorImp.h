@@ -23,7 +23,7 @@ namespace OpenHardwareMonitorApi {
         virtual float GpuUsage() override;
 
     private:
-        bool GetHardwareTemperature(IHardware^ hardware, float& temperature);
+        bool GetHardwareTemperature(IHardware^ hardware, float& temperature, System::String^ match = "");
         bool GetGpuUsage(IHardware^ hardware, float& gpu_usage);
 
         void ResetAllValues();
