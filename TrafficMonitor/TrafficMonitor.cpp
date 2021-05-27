@@ -62,6 +62,9 @@ void CTrafficMonitorApp::LoadConfig()
     m_general_data.monitor_time_span = ini.GetInt(L"general", L"monitor_time_span", 1000);
     if (m_general_data.monitor_time_span < MONITOR_TIME_SPAN_MIN || m_general_data.monitor_time_span > MONITOR_TIME_SPAN_MAX)
         m_general_data.monitor_time_span = 1000;
+    m_general_data.hard_disk_name = ini.GetString(L"general", L"hard_disk_name", L"");
+    m_general_data.cpu_core_name = ini.GetString(L"general", L"cpu_core_name", L"");
+    m_general_data.hardware_monitor_item = ini.GetInt(L"general", L"hardware_monitor_item", HI_CPU | HI_GPU | HI_HDD | HI_MBD);
 
     //Windows10颜色模式设置
     bool is_windows10_light_theme = m_win_version.IsWindows10LightTheme();
@@ -251,6 +254,9 @@ void CTrafficMonitorApp::SaveConfig()
     ini.WriteBool(L"general", L"show_all_interface", m_general_data.show_all_interface);
     ini.WriteBool(L"general", L"get_cpu_usage_by_cpu_times", m_general_data.m_get_cpu_usage_by_cpu_times);
     ini.WriteInt(L"general", L"monitor_time_span", m_general_data.monitor_time_span);
+    ini.WriteString(L"general", L"hard_disk_name", m_general_data.hard_disk_name);
+    ini.WriteString(L"general", L"cpu_core_name", m_general_data.cpu_core_name);
+    ini.WriteInt(L"general", L"hardware_monitor_item", m_general_data.hardware_monitor_item);
 
     //主窗口设置
     ini.WriteInt(L"config", L"transparency", m_cfg_data.m_transparency);
@@ -541,7 +547,14 @@ UINT CTrafficMonitorApp::CheckUpdateThreadFunc(LPVOID lpParam)
 UINT CTrafficMonitorApp::InitOpenHardwareMonitorLibThreadFunc(LPVOID lpParam)
 {
 #ifndef WITHOUT_TEMPERATURE
+    CSingleLock sync(&theApp.m_minitor_lib_init_critical, TRUE);
     theApp.m_pMonitor = OpenHardwareMonitorApi::CreateInstance();
+    if (theApp.m_pMonitor == nullptr)
+    {
+        AfxMessageBox(OpenHardwareMonitorApi::GetErrorMessage().c_str(), MB_ICONERROR | MB_OK);
+    }
+    //设置硬件监控的启用状态
+    theApp.UpdateOpenHardwareMonitorEnableState();
 #endif
     return 0;
 }
@@ -900,8 +913,13 @@ BOOL CTrafficMonitorApp::InitInstance()
     }
     else
     {
-        //启动初始化OpenHardwareMonitor的线程。由于OpenHardwareMonitor初始化需要一定的时间，为了防止启动时程序卡顿，将其放到后台线程中处理
-        AfxBeginThread(InitOpenHardwareMonitorLibThreadFunc, NULL);
+        //如果没有开启任何一项的硬件监控，则不初始化OpenHardwareMonitor
+        if (theApp.m_general_data.IsHardwareEnable(HI_CPU) || theApp.m_general_data.IsHardwareEnable(HI_GPU)
+            || theApp.m_general_data.IsHardwareEnable(HI_HDD) || theApp.m_general_data.IsHardwareEnable(HI_MBD))
+        {
+            //启动初始化OpenHardwareMonitor的线程。由于OpenHardwareMonitor初始化需要一定的时间，为了防止启动时程序卡顿，将其放到后台线程中处理
+            InitOpenHardwareLibInThread();
+        }
     }
 #endif
 
@@ -944,7 +962,26 @@ BOOL CTrafficMonitorApp::InitInstance()
     return FALSE;
 }
 
+void CTrafficMonitorApp::InitOpenHardwareLibInThread()
+{
+#ifndef WITHOUT_TEMPERATURE
+    AfxBeginThread(InitOpenHardwareMonitorLibThreadFunc, NULL);
+#endif
+}
 
+
+void CTrafficMonitorApp::UpdateOpenHardwareMonitorEnableState()
+{
+#ifndef WITHOUT_TEMPERATURE
+    if (m_pMonitor != nullptr)
+    {
+        m_pMonitor->SetCpuEnable(m_general_data.IsHardwareEnable(HI_CPU));
+        m_pMonitor->SetGpuEnable(m_general_data.IsHardwareEnable(HI_GPU));
+        m_pMonitor->SetHddEnable(m_general_data.IsHardwareEnable(HI_HDD));
+        m_pMonitor->SetMainboardEnable(m_general_data.IsHardwareEnable(HI_MBD));
+    }
+#endif
+}
 
 void CTrafficMonitorApp::OnHelp()
 {

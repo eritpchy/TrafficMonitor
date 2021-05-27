@@ -34,6 +34,8 @@ void CGeneralSettingsDlg::SetControlMouseWheelEnable(bool enable)
     m_gpu_temp_tip_edit.SetMouseWheelEnable(enable);
     m_hdd_temp_tip_edit.SetMouseWheelEnable(enable);
     m_mbd_temp_tip_edit.SetMouseWheelEnable(enable);
+    m_hard_disk_combo.SetMouseWheelEnable(enable);
+    m_select_cpu_combo.SetMouseWheelEnable(enable);
 }
 
 bool CGeneralSettingsDlg::IsMonitorTimeSpanModified() const
@@ -53,6 +55,8 @@ void CGeneralSettingsDlg::DoDataExchange(CDataExchange* pDX)
     DDX_Control(pDX, IDC_GPU_TEMP_TIP_EDIT, m_gpu_temp_tip_edit);
     DDX_Control(pDX, IDC_HDD_TIP_EDIT, m_hdd_temp_tip_edit);
     DDX_Control(pDX, IDC_MBD_TEMP_TIP_EDIT, m_mbd_temp_tip_edit);
+    DDX_Control(pDX, IDC_SELECT_HARD_DISK_COMBO, m_hard_disk_combo);
+    DDX_Control(pDX, IDC_SELECT_CPU_COMBO, m_select_cpu_combo);
 }
 
 void CGeneralSettingsDlg::SetControlEnable()
@@ -88,6 +92,12 @@ BEGIN_MESSAGE_MAP(CGeneralSettingsDlg, CTabDlg)
     ON_BN_CLICKED(IDC_GITHUB_RADIO, &CGeneralSettingsDlg::OnBnClickedGithubRadio)
     ON_BN_CLICKED(IDC_GITEE_RADIO, &CGeneralSettingsDlg::OnBnClickedGiteeRadio)
     ON_BN_CLICKED(IDC_RESTORE_DEFAULT_TIME_SPAN_BUTTON, &CGeneralSettingsDlg::OnBnClickedRestoreDefaultTimeSpanButton)
+    ON_CBN_SELCHANGE(IDC_SELECT_HARD_DISK_COMBO, &CGeneralSettingsDlg::OnCbnSelchangeSelectHardDiskCombo)
+    ON_BN_CLICKED(IDC_CPU_CHECK, &CGeneralSettingsDlg::OnBnClickedCpuCheck)
+    ON_BN_CLICKED(IDC_GPU_CHECK, &CGeneralSettingsDlg::OnBnClickedGpuCheck)
+    ON_BN_CLICKED(IDC_HDD_CHECK, &CGeneralSettingsDlg::OnBnClickedHddCheck)
+    ON_BN_CLICKED(IDC_MBD_CHECK, &CGeneralSettingsDlg::OnBnClickedMbdCheck)
+    ON_CBN_SELCHANGE(IDC_SELECT_CPU_COMBO, &CGeneralSettingsDlg::OnCbnSelchangeSelectCpuCombo)
 END_MESSAGE_MAP()
 
 
@@ -180,6 +190,31 @@ BOOL CGeneralSettingsDlg::OnInitDialog()
     m_monitor_time_span_ori = m_data.monitor_time_span;
     m_update_source_ori = m_data.update_source;
 
+#ifndef WITHOUT_TEMPERATURE
+    //初始化硬件监控Check box
+    CheckDlgButton(IDC_CPU_CHECK, m_data.IsHardwareEnable(HI_CPU));
+    CheckDlgButton(IDC_GPU_CHECK, m_data.IsHardwareEnable(HI_GPU));
+    CheckDlgButton(IDC_HDD_CHECK, m_data.IsHardwareEnable(HI_HDD));
+    CheckDlgButton(IDC_MBD_CHECK, m_data.IsHardwareEnable(HI_MBD));
+
+    if (theApp.m_pMonitor != nullptr)
+    {
+        //初始化选择硬盘下拉列表
+        for (const auto& hdd_item : theApp.m_pMonitor->AllHDDTemperature())
+            m_hard_disk_combo.AddString(hdd_item.first.c_str());
+        int cur_index = m_hard_disk_combo.FindString(-1, m_data.hard_disk_name.c_str());
+        m_hard_disk_combo.SetCurSel(cur_index);
+        //初始化选择CPU下拉列表
+        m_select_cpu_combo.AddString(CCommon::LoadText(IDS_AVREAGE_TEMPERATURE));
+        for (const auto& cpu_item : theApp.m_pMonitor->AllCpuTemperature())
+            m_select_cpu_combo.AddString(cpu_item.first.c_str());
+        cur_index = m_select_cpu_combo.FindString(-1, m_data.cpu_core_name.c_str());
+        if (cur_index < 0)
+            cur_index = 0;
+        m_select_cpu_combo.SetCurSel(cur_index);
+    }
+#endif
+
     //不含温度监控的版本，禁用温度相关的控件
 #ifdef WITHOUT_TEMPERATURE
     EnableDlgCtrl(IDC_CPU_TEMP_TIP_CHECK, false);
@@ -190,6 +225,11 @@ BOOL CGeneralSettingsDlg::OnInitDialog()
     EnableDlgCtrl(IDC_HDD_TIP_EDIT, false);
     EnableDlgCtrl(IDC_MBD_TEMP_TIP_CHECK, false);
     EnableDlgCtrl(IDC_MBD_TEMP_TIP_EDIT, false);
+    EnableDlgCtrl(IDC_CPU_CHECK, false);
+    EnableDlgCtrl(IDC_GPU_CHECK, false);
+    EnableDlgCtrl(IDC_HDD_CHECK, false);
+    EnableDlgCtrl(IDC_MBD_CHECK, false);
+    EnableDlgCtrl(IDC_SELECT_HARD_DISK_COMBO, false);
 #endif
 
     return TRUE;  // return TRUE unless you set the focus to a control
@@ -459,4 +499,50 @@ void CGeneralSettingsDlg::OnBnClickedRestoreDefaultTimeSpanButton()
 {
     // TODO: 在此添加控件通知处理程序代码
     m_monitor_span_edit.SetValue(1000);
+}
+
+
+void CGeneralSettingsDlg::OnCbnSelchangeSelectHardDiskCombo()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    CString hard_disk_name;
+   m_hard_disk_combo.GetWindowText(hard_disk_name);
+   m_data.hard_disk_name = hard_disk_name.GetString();
+}
+
+
+void CGeneralSettingsDlg::OnBnClickedCpuCheck()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    m_data.SetHardwareEnable(HI_CPU, IsDlgButtonChecked(IDC_CPU_CHECK) != 0);
+}
+
+
+void CGeneralSettingsDlg::OnBnClickedGpuCheck()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    m_data.SetHardwareEnable(HI_GPU, IsDlgButtonChecked(IDC_GPU_CHECK) != 0);
+}
+
+
+void CGeneralSettingsDlg::OnBnClickedHddCheck()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    m_data.SetHardwareEnable(HI_HDD, IsDlgButtonChecked(IDC_HDD_CHECK) != 0);
+}
+
+
+void CGeneralSettingsDlg::OnBnClickedMbdCheck()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    m_data.SetHardwareEnable(HI_MBD, IsDlgButtonChecked(IDC_MBD_CHECK) != 0);
+}
+
+
+void CGeneralSettingsDlg::OnCbnSelchangeSelectCpuCombo()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    CString cpu_core_name;
+    m_select_cpu_combo.GetWindowText(cpu_core_name);
+    m_data.cpu_core_name = cpu_core_name.GetString();
 }

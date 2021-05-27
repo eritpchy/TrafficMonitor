@@ -324,6 +324,14 @@ void CTaskBarDlg::DrawDisplayItem(CDrawCommon& drawer, DisplayItem type, CRect r
     drawer.DrawWindowText(rect_value, str_value, text_color, value_alignment);
 }
 
+void CTaskBarDlg::MoveWindow(CRect rect)
+{
+    if (IsWindow(GetSafeHwnd()))
+    {
+        ::MoveWindow(GetSafeHwnd(), rect.left, rect.top, rect.Width(), rect.Height(), TRUE);
+    }
+}
+
 void CTaskBarDlg::TryDrawStatusBar(CDrawCommon& drawer, const CRect& rect_bar, int usage_percent)
 {
     if (!theApp.m_taskbar_data.show_status_bar)
@@ -879,10 +887,12 @@ BOOL CTaskBarDlg::OnInitDialog()
     SetBackgroundColor(theApp.m_taskbar_data.back_color);
 
     //初始化鼠标提示
-    m_tool_tips.Create(this, TTS_ALWAYSTIP);
-    m_tool_tips.SetMaxTipWidth(600);
-    m_tool_tips.AddTool(this, _T(""));
-    SetToolTipsTopMost();       //设置提示信息总是置顶
+    if (IsWindow(GetSafeHwnd()) && m_tool_tips.Create(this, TTS_ALWAYSTIP) && IsWindow(m_tool_tips.GetSafeHwnd()))
+    {
+        m_tool_tips.SetMaxTipWidth(600);
+        m_tool_tips.AddTool(this, _T(""));
+        SetToolTipsTopMost();       //设置提示信息总是置顶
+    }
 
     //SetTimer(TASKBAR_TIMER, 100, NULL);
 
@@ -914,7 +924,9 @@ void CTaskBarDlg::OnRButtonUp(UINT nFlags, CPoint point)
 
     CPoint point1;  //定义一个用于确定光标位置的位置
     GetCursorPos(&point1);  //获取当前光标的位置，以便使得菜单可以跟随光标
-    theApp.m_taskbar_menu.GetSubMenu(0)->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point1.x, point1.y, this); //在指定位置显示弹出菜单
+    CMenu* pMenu = theApp.m_taskbar_menu.GetSubMenu(0);
+    if (pMenu != nullptr)
+        pMenu->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point1.x, point1.y, this); //在指定位置显示弹出菜单
     CDialogEx::OnRButtonUp(nFlags, point1);
 }
 
@@ -983,7 +995,7 @@ BOOL CTaskBarDlg::PreTranslateMessage(MSG* pMsg)
     if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE) return TRUE;
     if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_RETURN) return TRUE;
 
-    if (theApp.m_taskbar_data.show_tool_tip && m_tool_tips.GetSafeHwnd() && (pMsg->message == WM_LBUTTONDOWN ||
+    if (theApp.m_taskbar_data.show_tool_tip && IsWindow(m_tool_tips.GetSafeHwnd()) && (pMsg->message == WM_LBUTTONDOWN ||
         pMsg->message == WM_LBUTTONUP ||
         pMsg->message == WM_MOUSEMOVE))
     {

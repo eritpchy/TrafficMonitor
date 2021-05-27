@@ -153,27 +153,27 @@ CString CTrafficMonitorDlg::GetMouseTipsInfo()
 #ifndef WITHOUT_TEMPERATURE
     if (IsTemperatureNeeded())
     {
-        if (!skin_layout.GetItem(TDI_GPU_USAGE).show && theApp.m_gpu_usage >= 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_GPU) && !skin_layout.GetItem(TDI_GPU_USAGE).show && theApp.m_gpu_usage >= 0)
         {
             temp.Format(_T("\r\n%s: %d %%"), CCommon::LoadText(IDS_GPU_USAGE), theApp.m_gpu_usage);
             tip_info += temp;
         }
-        if (!skin_layout.GetItem(TDI_CPU_TEMP).show && theApp.m_cpu_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_CPU) && !skin_layout.GetItem(TDI_CPU_TEMP).show && theApp.m_cpu_temperature > 0)
         {
             temp.Format(_T("\r\n%s: %s"), CCommon::LoadText(IDS_CPU_TEMPERATURE), CCommon::TemperatureToString(theApp.m_cpu_temperature, theApp.m_main_wnd_data));
             tip_info += temp;
         }
-        if (!skin_layout.GetItem(TDI_GPU_TEMP).show && theApp.m_gpu_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_GPU) && !skin_layout.GetItem(TDI_GPU_TEMP).show && theApp.m_gpu_temperature > 0)
         {
             temp.Format(_T("\r\n%s: %s"), CCommon::LoadText(IDS_GPU_TEMPERATURE), CCommon::TemperatureToString(theApp.m_gpu_temperature, theApp.m_main_wnd_data));
             tip_info += temp;
         }
-        if (!skin_layout.GetItem(TDI_HDD_TEMP).show && theApp.m_hdd_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_HDD) && !skin_layout.GetItem(TDI_HDD_TEMP).show && theApp.m_hdd_temperature > 0)
         {
             temp.Format(_T("\r\n%s: %s"), CCommon::LoadText(IDS_HDD_TEMPERATURE), CCommon::TemperatureToString(theApp.m_hdd_temperature, theApp.m_main_wnd_data));
             tip_info += temp;
         }
-        if (!skin_layout.GetItem(TDI_MAIN_BOARD_TEMP).show && theApp.m_main_board_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_MBD) && !skin_layout.GetItem(TDI_MAIN_BOARD_TEMP).show && theApp.m_main_board_temperature > 0)
         {
             temp.Format(_T("\r\n%s: %s"), CCommon::LoadText(IDS_MAINBOARD_TEMPERATURE), CCommon::TemperatureToString(theApp.m_main_board_temperature, theApp.m_main_wnd_data));
             tip_info += temp;
@@ -293,9 +293,10 @@ void CTrafficMonitorDlg::AutoSelect()
     //自动选择连接时，查找已发送和已接收字节数之和最多的那个连接，并将其设置为当前查看的连接
     for (size_t i{}; i < m_connections.size(); i++)
     {
-        if (m_pIfTable->Table[m_connections[i].index].OperStatus == IfOperStatusUp)     //只选择网络状态为正常的连接
+        auto table = GetConnectIfTable(i);
+        if (table.OperStatus == IfOperStatusUp)     //只选择网络状态为正常的连接
         {
-            in_out_bytes = m_pIfTable->Table[m_connections[i].index].InOctets + m_pIfTable->Table[m_connections[i].index].OutOctets;
+            in_out_bytes = table.InOctets + table.OutOctets;
             if (in_out_bytes > max_in_out_bytes)
             {
                 max_in_out_bytes = in_out_bytes;
@@ -307,10 +308,8 @@ void CTrafficMonitorDlg::AutoSelect()
     m_connection_change_flag = true;
 }
 
-void CTrafficMonitorDlg::IniConnection()
+void CTrafficMonitorDlg::UpdateConnections()
 {
-    FreeMibTable(m_pIfTable);
-    GetIfTable2(&m_pIfTable);
     //获取当前所有的连接，并保存到m_connections容器中
     if (!theApp.m_general_data.show_all_interface)
     {
@@ -389,6 +388,24 @@ void CTrafficMonitorDlg::IniConnection()
 
     m_restart_cnt++;    //记录初始化次数
     m_connection_change_flag = true;
+}
+
+void CTrafficMonitorDlg::IniConnection()
+{
+    FreeMibTable(m_pIfTable);
+    GetIfTable2(&m_pIfTable);
+    UpdateConnections();
+}
+
+MIB_IF_ROW2 CTrafficMonitorDlg::GetConnectIfTable(int connection_index)
+{
+    if (connection_index >= 0 && connection_index < static_cast<int>(m_connections.size()))
+    {
+        int index = m_connections[connection_index].index;
+        if (m_pIfTable != nullptr && index >= 0 && index < m_pIfTable->NumEntries)
+            return m_pIfTable->Table[index];
+    }
+    return MIB_IF_ROW2();
 }
 
 void CTrafficMonitorDlg::IniConnectionMenu(CMenu* pMenu)
@@ -511,15 +528,15 @@ void CTrafficMonitorDlg::UpdateNotifyIconTip()
     strTip += CCommon::StringFormat(_T("\r\n<%1%>: <%2%> %"), { CCommon::LoadText(IDS_MEMORY), theApp.m_memory_usage });
     if (IsTemperatureNeeded())
     {
-        if (theApp.m_gpu_usage >= 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_GPU) && theApp.m_gpu_usage >= 0)
             strTip += CCommon::StringFormat(_T("\r\n<%1%>: <%2%> %"), { CCommon::LoadText(IDS_GPU_USAGE), theApp.m_gpu_usage });
-        if (theApp.m_cpu_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_CPU) && theApp.m_cpu_temperature > 0)
             strTip += CCommon::StringFormat(_T("\r\n<%1%>: <%2%> °C"), { CCommon::LoadText(IDS_CPU_TEMPERATURE), static_cast<int>(theApp.m_cpu_temperature) });
-        if (theApp.m_gpu_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_GPU) && theApp.m_gpu_temperature > 0)
             strTip += CCommon::StringFormat(_T("\r\n<%1%>: <%2%> °C"), { CCommon::LoadText(IDS_GPU_TEMPERATURE), static_cast<int>(theApp.m_gpu_temperature) });
-        if (theApp.m_hdd_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_HDD) && theApp.m_hdd_temperature > 0)
             strTip += CCommon::StringFormat(_T("\r\n<%1%>: <%2%> °C"), { CCommon::LoadText(IDS_HDD_TEMPERATURE), static_cast<int>(theApp.m_hdd_temperature) });
-        if (theApp.m_main_board_temperature > 0)
+        if (theApp.m_general_data.IsHardwareEnable(HI_MBD) && theApp.m_main_board_temperature > 0)
             strTip += CCommon::StringFormat(_T("\r\n<%1%>: <%2%> °C"), { CCommon::LoadText(IDS_MAINBOARD_TEMPERATURE), static_cast<int>(theApp.m_main_board_temperature) });
     }
 
@@ -566,6 +583,7 @@ void CTrafficMonitorDlg::BackupHistoryTrafficFile()
 void CTrafficMonitorDlg::_OnOptions(int tab)
 {
     COptionsDlg optionsDlg(tab);
+
     //将选项设置数据传递给选项设置对话框
     optionsDlg.m_tab1_dlg.m_data = theApp.m_main_wnd_data;
     optionsDlg.m_tab2_dlg.m_data = theApp.m_taskbar_data;
@@ -574,6 +592,8 @@ void CTrafficMonitorDlg::_OnOptions(int tab)
 
     if (optionsDlg.DoModal() == IDOK)
     {
+        bool is_hardware_monitor_item_changed = (optionsDlg.m_tab3_dlg.m_data.hardware_monitor_item != theApp.m_general_data.hardware_monitor_item);
+
         theApp.m_main_wnd_data = optionsDlg.m_tab1_dlg.m_data;
         theApp.m_taskbar_data = optionsDlg.m_tab2_dlg.m_data;
         theApp.m_general_data = optionsDlg.m_tab3_dlg.m_data;
@@ -605,6 +625,20 @@ void CTrafficMonitorDlg::_OnOptions(int tab)
 
         //设置获取CPU利用率的方式
         m_cpu_usage.SetUseCPUTimes(theApp.m_general_data.m_get_cpu_usage_by_cpu_times);
+
+#ifndef WITHOUT_TEMPERATURE
+        if (is_hardware_monitor_item_changed)
+        {
+            if (theApp.m_pMonitor != nullptr)
+            {
+                theApp.UpdateOpenHardwareMonitorEnableState();
+            }
+            else if (IsTemperatureNeeded())
+            {
+                theApp.InitOpenHardwareLibInThread();
+            }
+        }
+#endif
 
         theApp.SaveConfig();
         theApp.SaveGlobalConfig();
@@ -709,27 +743,32 @@ void CTrafficMonitorDlg::TaskbarShowHideItem(DisplayItem type)
 bool CTrafficMonitorDlg::IsTemperatureNeeded() const
 {
     //判断是否需要从OpenHardwareMonitor获取信息。
-    //只有主窗口和任务栏窗口中CPU温度、显卡利用率、显卡温度、硬盘温度和主板温度中至少有一个要显示，才返回true
-    bool needed = false;
-    if (theApp.m_cfg_data.m_show_task_bar_wnd && IsTaskbarWndValid())
-    {
-        needed |= m_tBarDlg->IsShowCpuTemperature();
-        needed |= m_tBarDlg->IsShowGpu();
-        needed |= m_tBarDlg->IsShowGpuTemperature();
-        needed |= m_tBarDlg->IsShowHddTemperature();
-        needed |= m_tBarDlg->IsShowMainboardTemperature();
-    }
+    ////只有主窗口和任务栏窗口中CPU温度、显卡利用率、显卡温度、硬盘温度和主板温度中至少有一个要显示，才返回true
+    //bool needed = false;
+    //if (theApp.m_cfg_data.m_show_task_bar_wnd && IsTaskbarWndValid())
+    //{
+    //    needed |= m_tBarDlg->IsShowCpuTemperature();
+    //    needed |= m_tBarDlg->IsShowGpu();
+    //    needed |= m_tBarDlg->IsShowGpuTemperature();
+    //    needed |= m_tBarDlg->IsShowHddTemperature();
+    //    needed |= m_tBarDlg->IsShowMainboardTemperature();
+    //    needed |= (::IsWindow(m_tBarDlg->m_tool_tips.GetSafeHwnd()) && m_tBarDlg->m_tool_tips.IsWindowVisible());
+    //}
 
-    if (!theApp.m_cfg_data.m_hide_main_window)
-    {
-        const CSkinFile::Layout& skin_layout{ theApp.m_cfg_data.m_show_more_info ? m_skin.GetLayoutInfo().layout_l : m_skin.GetLayoutInfo().layout_s }; //当前的皮肤布局
-        needed |= skin_layout.GetItem(TDI_CPU_TEMP).show;
-        needed |= skin_layout.GetItem(TDI_GPU_USAGE).show;
-        needed |= skin_layout.GetItem(TDI_GPU_TEMP).show;
-        needed |= skin_layout.GetItem(TDI_HDD_TEMP).show;
-        needed |= skin_layout.GetItem(TDI_MAIN_BOARD_TEMP).show;
-    }
-    return needed;
+    //if (!theApp.m_cfg_data.m_hide_main_window)
+    //{
+    //    const CSkinFile::Layout& skin_layout{ theApp.m_cfg_data.m_show_more_info ? m_skin.GetLayoutInfo().layout_l : m_skin.GetLayoutInfo().layout_s }; //当前的皮肤布局
+    //    needed |= skin_layout.GetItem(TDI_CPU_TEMP).show;
+    //    needed |= skin_layout.GetItem(TDI_GPU_USAGE).show;
+    //    needed |= skin_layout.GetItem(TDI_GPU_TEMP).show;
+    //    needed |= skin_layout.GetItem(TDI_HDD_TEMP).show;
+    //    needed |= skin_layout.GetItem(TDI_MAIN_BOARD_TEMP).show;
+    //    needed |= (::IsWindow(m_tool_tips.GetSafeHwnd()) && m_tool_tips.IsWindowVisible());
+    //}
+    //return needed;
+
+    return theApp.m_general_data.IsHardwareEnable(HI_CPU) || theApp.m_general_data.IsHardwareEnable(HI_GPU)
+        || theApp.m_general_data.IsHardwareEnable(HI_HDD) || theApp.m_general_data.IsHardwareEnable(HI_MBD);
 }
 
 // CTrafficMonitorDlg 消息处理程序
@@ -867,13 +906,21 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
     CTrafficMonitorDlg* pThis = (CTrafficMonitorDlg*)dwUser;
     CFlagLocker flag_locker(pThis->m_is_monitor_thread_runing);
 
+    ULONG num_entries = 0;
+    if (pThis->m_pIfTable != nullptr)
+        num_entries = pThis->m_pIfTable->NumEntries;
     //获取网络连接速度
     FreeMibTable(pThis->m_pIfTable);
     int rtn = GetIfTable2(&pThis->m_pIfTable);
+    if (num_entries != pThis->m_pIfTable->NumEntries)
+    {
+        pThis->UpdateConnections();
+    }
     if (!theApp.m_cfg_data.m_select_all)        //获取当前选中连接的网速
     {
-        pThis->m_in_bytes = pThis->m_pIfTable->Table[pThis->m_connections[pThis->m_connection_selected].index].InOctets;
-        pThis->m_out_bytes = pThis->m_pIfTable->Table[pThis->m_connections[pThis->m_connection_selected].index].OutOctets;
+        auto table = pThis->GetConnectIfTable(pThis->m_connection_selected);
+        pThis->m_in_bytes = table.InOctets;
+        pThis->m_out_bytes = table.OutOctets;
     }
     else        //获取全部连接的网速
     {
@@ -881,11 +928,12 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
         pThis->m_out_bytes = 0;
         for (size_t i{}; i < pThis->m_connections.size(); i++)
         {
+            auto table = pThis->GetConnectIfTable(i);
             //if (i > 0 && m_pIfTable->table[m_connections[i].index].dwInOctets == m_pIfTable->table[m_connections[i - 1].index].dwInOctets
             //  && m_pIfTable->table[m_connections[i].index].dwOutOctets == m_pIfTable->table[m_connections[i - 1].index].dwOutOctets)
             //  continue;       //连接列表中可能会有相同的连接，统计所有连接的网速时，忽略掉已发送和已接收字节数完全相同的连接
-            pThis->m_in_bytes += pThis->m_pIfTable->Table[pThis->m_connections[i].index].InOctets;
-            pThis->m_out_bytes += pThis->m_pIfTable->Table[pThis->m_connections[i].index].OutOctets;
+            pThis->m_in_bytes += table.InOctets;
+            pThis->m_out_bytes += table.OutOctets;
         }
     }
 
@@ -995,7 +1043,7 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
         last_interface_num = interface_num;
 
         wstring descr;
-        descr = pThis->m_pIfTable->Table[pThis->m_connections[pThis->m_connection_selected].index].Description;
+        descr = pThis->GetConnectIfTable(pThis->m_connection_selected).Description;
         if (descr != theApp.m_cfg_data.m_connection_name)
         {
             //写入额外的调试信息
@@ -1037,11 +1085,47 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
     if (pThis->IsTemperatureNeeded() && theApp.m_pMonitor != nullptr)
     {
         theApp.m_pMonitor->GetHardwareInfo();
-        theApp.m_cpu_temperature = theApp.m_pMonitor->CpuTemperature();
+        //theApp.m_cpu_temperature = theApp.m_pMonitor->CpuTemperature();
         theApp.m_gpu_temperature = theApp.m_pMonitor->GpuTemperature();
-        theApp.m_hdd_temperature = theApp.m_pMonitor->HDDTemperature();
+        //theApp.m_hdd_temperature = theApp.m_pMonitor->HDDTemperature();
         theApp.m_main_board_temperature = theApp.m_pMonitor->MainboardTemperature();
         theApp.m_gpu_usage = theApp.m_pMonitor->GpuUsage();
+        //获取CPU温度
+        if (!theApp.m_pMonitor->AllCpuTemperature().empty())
+        {
+            auto iter = theApp.m_pMonitor->AllCpuTemperature().find(theApp.m_general_data.cpu_core_name);
+            if (iter == theApp.m_pMonitor->AllCpuTemperature().end())
+                theApp.m_cpu_temperature = theApp.m_pMonitor->CpuTemperature();
+            else
+                theApp.m_cpu_temperature = iter->second;
+        }
+        else
+        {
+            theApp.m_cpu_temperature = -1;
+        }
+        //获取硬盘温度
+        if (!theApp.m_pMonitor->AllHDDTemperature().empty())
+        {
+            auto iter = theApp.m_pMonitor->AllHDDTemperature().find(theApp.m_general_data.hard_disk_name);
+            if (iter == theApp.m_pMonitor->AllHDDTemperature().end())
+            {
+                iter = theApp.m_pMonitor->AllHDDTemperature().begin();
+                theApp.m_general_data.hard_disk_name = iter->first;
+            }
+            theApp.m_hdd_temperature = iter->second;
+        }
+        else
+        {
+            theApp.m_hdd_temperature = -1;
+        }
+    }
+    else
+    {
+        theApp.m_cpu_temperature = -1;
+        theApp.m_gpu_temperature = -1;
+        theApp.m_hdd_temperature = -1;
+        theApp.m_main_board_temperature = -1;
+        theApp.m_gpu_usage = -1;
     }
 #endif
 

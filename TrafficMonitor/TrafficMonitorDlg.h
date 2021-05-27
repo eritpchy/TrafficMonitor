@@ -45,13 +45,13 @@ public:
 protected:
     HICON m_hIcon;
     NOTIFYICONDATA m_ntIcon;    //通知区域图标
-    CTaskBarDlg* m_tBarDlg;     //任务栏窗口的指针
+    CTaskBarDlg* m_tBarDlg{};     //任务栏窗口的指针
 
     vector<NetWorkConection> m_connections; //保存获取到的要显示到“选择网卡”菜单项中的所有网络连接
-    MIB_IF_TABLE2* m_pIfTable;
+    MIB_IF_TABLE2* m_pIfTable{};
     int m_connection_selected{ 0 }; //要显示流量的连接的序号
-    unsigned __int64 m_in_bytes;        //当前已接收的字节数
-    unsigned __int64 m_out_bytes;   //当前已发送的字节数
+    unsigned __int64 m_in_bytes{};        //当前已接收的字节数
+    unsigned __int64 m_out_bytes{};   //当前已发送的字节数
     unsigned __int64 m_last_in_bytes{}; //上次已接收的字节数
     unsigned __int64 m_last_out_bytes{};    //上次已发送的字节数
 
@@ -102,8 +102,12 @@ protected:
     void CheckWindowPos();          //测试窗口的位置，如窗口的位置在屏幕外，则移动窗口使其全部都在屏幕内，并返回新位置
     void GetScreenSize();           //获取屏幕的大小
 
-    void AutoSelect();      //自动选择连接
+    void AutoSelect();
+    void UpdateConnections();
+    //自动选择连接
     void IniConnection();   //初始化连接
+
+    MIB_IF_ROW2 GetConnectIfTable(int connection_index);    //获取当前选择的网络连接的MIB_IF_ROW2对象。connection_index为m_connections中的索引
 
     void IniConnectionMenu(CMenu* pMenu);   //初始化“选择网络连接”菜单
     void IniTaskBarConnectionMenu();        //初始化任务栏窗口的“选择网络连接”菜单
