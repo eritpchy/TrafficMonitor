@@ -5,13 +5,17 @@
 [![GitHub release](https://img.shields.io/github/release/zhongyang219/TrafficMonitor.svg?style=flat-square)](https://github.com/zhongyang219/TrafficMonitor/releases/latest)
 
 # TrafficMonitor 簡介
-Traffic Monitor是一款用於Windows平台的網速監控懸浮窗軟體，可以顯示目前網路速度、CPU及記憶體使用率，支援嵌入到工作列顯示，支援更換面板、歷史流量統計等功能。<br>
-# 相關連結：<br>
+Traffic Monitor是一款用於Windows平台的網速監控懸浮窗軟體，可以顯示目前網路速度、CPU及記憶體使用率，支援嵌入到工作列顯示，支援更換面板、歷史流量統計等功能。
+
+# 相關連結：
+
 請[點選此處](https://github.com/zhongyang219/TrafficMonitor/releases/latest)下載TrafficMonitor的最新版本。<br>
 備用連結：[百度網盤下載](https://pan.baidu.com/s/15PMt7s-ASpyDwtS__4cUhg) 提取码：`ou0m`<br>
 如果遇到問題，請[點選此處](https://github.com/zhongyang219/TrafficMonitor/blob/master/Help.md)。<br>
 
 你也可以[點擊此處](https://github.com/zhongyang219/TrafficMonitor/actions?query=workflow:"Release+CI")下載TrafficMonitor的預發行構建版本。
+
+從1.80版本開始，TrafficMonitor加入了溫度監控功能，如果你不需要溫度監控功能，並且在使用1.80以上版本中遇到了問題，建議下載不含溫度監控的版本。（在Release頁面找到檔名包含`without_temperature`的版本。）
 
 # 主要特性
 * 顯示目前實現網路傳輸速率、CPU和記憶體使用率<br>
@@ -53,3 +57,8 @@ Traffic Monitor是一款用於Windows平台的網速監控懸浮窗軟體，可�
 
 # 更新日誌
 **[點選此處檢視更新日誌](./UpdateLog/update_log_zh-tw.md)**
+
+# 關於此專案在Gitee上的倉庫
+
+Gitee上的倉庫僅作為GitHub倉庫的備份，我的所有程式碼提交都是在GitHub上進行，Gitee倉庫會不定期地同步GitHub倉庫的更新。因此Gitee上的倉庫不接受任何pull request，如果你想向TrafficMonitor貢獻你的程式碼，請在GitHub上提交你的pull request。
+
