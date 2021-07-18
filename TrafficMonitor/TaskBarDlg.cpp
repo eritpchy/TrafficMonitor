@@ -163,7 +163,7 @@ void CTaskBarDlg::DrawDisplayItem(CDrawCommon& drawer, DisplayItem type, CRect r
         rect_label.right = rect_label.left + label_width;
         rect_value.left = rect_label.right;
     }
-    else
+    else if (label_width != 0)
     {
         rect_label.bottom = rect_label.top + (rect_label.Height() / 2);
         rect_value.top = rect_label.bottom;
@@ -236,15 +236,18 @@ void CTaskBarDlg::DrawDisplayItem(CDrawCommon& drawer, DisplayItem type, CRect r
     }
 
     //绘制标签
-    wstring str_label = theApp.m_taskbar_data.disp_str.Get(type);
-    if (theApp.m_taskbar_data.swap_up_down)
+    if (label_width > 0)
     {
-        if (type == TDI_UP)
-            str_label = theApp.m_taskbar_data.disp_str.Get(TDI_DOWN);
-        else if (type == TDI_DOWN)
-            str_label = theApp.m_taskbar_data.disp_str.Get(TDI_UP);
+        wstring str_label = theApp.m_taskbar_data.disp_str.Get(type);
+        if (theApp.m_taskbar_data.swap_up_down)
+        {
+            if (type == TDI_UP)
+                str_label = theApp.m_taskbar_data.disp_str.Get(TDI_DOWN);
+            else if (type == TDI_DOWN)
+                str_label = theApp.m_taskbar_data.disp_str.Get(TDI_UP);
+        }
+        drawer.DrawWindowText(rect_label, str_label.c_str(), label_color, (vertical ? Alignment::CENTER : Alignment::LEFT));
     }
-    drawer.DrawWindowText(rect_label, str_label.c_str(), label_color, (vertical ? Alignment::CENTER : Alignment::LEFT));
 
     //绘制数值
     CString str_value;
@@ -351,7 +354,8 @@ void CTaskBarDlg::TryDrawStatusBar(CDrawCommon& drawer, const CRect& rect_bar, i
 
     CSize fill_size = CSize(rect_bar.Width() * usage_percent / 100, rect_bar.Height());
     CRect rect_fill(rect_bar.TopLeft(), fill_size);
-    drawer.DrawRectOutLine(rect_bar, theApp.m_taskbar_data.status_bar_color, 1, true);
+    if (theApp.m_taskbar_data.show_graph_dashed_box)
+        drawer.DrawRectOutLine(rect_bar, theApp.m_taskbar_data.status_bar_color, 1, true);
     drawer.FillRect(rect_fill, theApp.m_taskbar_data.status_bar_color);
 }
 
@@ -1143,7 +1147,8 @@ void CTaskBarDlg::TryDrawGraph(CDrawCommon& drawer, const CRect& value_rect, Dis
         return;
     }
     CList<int, int>& list = m_map_history_data[item_type];
-    drawer.DrawRectOutLine(value_rect, theApp.m_taskbar_data.status_bar_color, 1, true);
+    if (theApp.m_taskbar_data.show_graph_dashed_box)
+        drawer.DrawRectOutLine(value_rect, theApp.m_taskbar_data.status_bar_color, 1, true);
     POSITION pos = list.GetHeadPosition();
     if (NULL != pos)
     {
