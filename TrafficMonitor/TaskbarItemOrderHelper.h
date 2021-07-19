@@ -15,7 +15,13 @@ enum DisplayItem
 };
 
 //所有显示项目的集合
-const std::set<DisplayItem> AllDisplayItems{ TDI_UP, TDI_DOWN, TDI_CPU, TDI_MEMORY, TDI_GPU_USAGE, TDI_CPU_TEMP, TDI_GPU_TEMP, TDI_HDD_TEMP, TDI_MAIN_BOARD_TEMP };
+const std::set<DisplayItem> AllDisplayItems
+{
+    TDI_UP, TDI_DOWN, TDI_CPU, TDI_MEMORY
+#ifndef WITHOUT_TEMPERATURE
+    , TDI_GPU_USAGE, TDI_CPU_TEMP, TDI_GPU_TEMP, TDI_HDD_TEMP, TDI_MAIN_BOARD_TEMP
+#endif
+};
 
 
 class CTaskbarItemOrderHelper
@@ -29,7 +35,10 @@ public:
     void FromString(const std::wstring& str);
     std::wstring ToString() const;
     void SetOrder(const vector<int>& item_order);
-    const vector<int>& GetItemOrder() const;
+    const vector<int>& GetItemOrderConst() const;
+    vector<int>& GetItemOrder();
+
+    static CString GetItemDisplayName(DisplayItem item);
 
 private:
     //规范m_item_order里的项目，如果m_item_order里有序号超过了显示项目的个数，则将其移除，并在后面添加缺少的项目的序号
