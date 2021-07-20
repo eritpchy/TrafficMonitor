@@ -32,7 +32,7 @@ namespace OpenHardwareMonitorApi {
         virtual void SetMainboardEnable(bool enable) override;
 
     private:
-        bool GetHardwareTemperature(IHardware^ hardware, float& temperature, System::String^ match = "");
+        bool GetHardwareTemperature(IHardware^ hardware, float& temperature);
         bool GetCpuTemperature(IHardware^ hardware, float& temperature);
         bool GetGpuUsage(IHardware^ hardware, float& gpu_usage);
 

@@ -105,7 +105,7 @@ namespace OpenHardwareMonitorApi
         MonitorGlobal::Instance()->computer->IsMotherboardEnabled = enable;
     }
 
-    bool COpenHardwareMonitor::GetHardwareTemperature(IHardware^ hardware, float& temperature, System::String^ match)
+    bool COpenHardwareMonitor::GetHardwareTemperature(IHardware^ hardware, float& temperature)
     {
         temperature = -1;
         std::vector<float> all_temperature;
@@ -115,12 +115,6 @@ namespace OpenHardwareMonitorApi
             if (hardware->Sensors[i]->SensorType == SensorType::Temperature)
             {
                 float cur_temperture = Convert::ToDouble(hardware->Sensors[i]->Value);
-                if (!System::String::IsNullOrEmpty(match)) {
-                   if (match->Equals(hardware->Sensors[i]->Name)) {
-                        temperature = cur_temperture;
-                        return true;
-                    }
-                }
                 all_temperature.push_back(cur_temperture);
             }
         }
@@ -136,7 +130,7 @@ namespace OpenHardwareMonitorApi
         //如果没有找到温度传感器，则在SubHardware中寻找
         for (int i = 0; i < hardware->SubHardware->Length; i++)
         {
-            if (GetHardwareTemperature(hardware->SubHardware[i], temperature, match))
+            if (GetHardwareTemperature(hardware->SubHardware[i], temperature))
                 return true;
         }
         return false;
@@ -145,7 +139,6 @@ namespace OpenHardwareMonitorApi
     bool COpenHardwareMonitor::GetCpuTemperature(IHardware^ hardware, float& temperature)
     {
         temperature = -1;
-        m_all_cpu_temperature.clear();
         for (int i = 0; i < hardware->Sensors->Length; i++)
         {
             //找到温度传感器
@@ -163,6 +156,12 @@ namespace OpenHardwareMonitorApi
             for (const auto& item : m_all_cpu_temperature)
                 sum += item.second;
             temperature = sum / m_all_cpu_temperature.size();
+        }
+        //如果没有找到温度传感器，则在SubHardware中寻找
+        for (int i = 0; i < hardware->SubHardware->Length; i++)
+        {
+            if (GetCpuTemperature(hardware->SubHardware[i], temperature))
+                return true;
         }
         return temperature > 0;
     }
@@ -242,25 +241,22 @@ namespace OpenHardwareMonitorApi
                 if (m_main_board_temperature < 0)
                     GetHardwareTemperature(computer->Hardware[i], m_main_board_temperature);
                 if (m_cpu_temperature < 0)
-                    GetHardwareTemperature(computer->Hardware[i], m_cpu_temperature, "PECI 0 Calibrated");
+                    GetCpuTemperature(computer->Hardware[i], m_cpu_temperature);
                 break;
             default:
                 break;
             }
         }
-        if (m_cpu_temperature < 0) {
-            for (int i = 0; i < computer->Hardware->Count; i++)
+        for (int i = 0; i < computer->Hardware->Count; i++)
+        {
+            //查找硬件类型
+            switch (computer->Hardware[i]->HardwareType)
             {
-                //查找硬件类型
-                switch (computer->Hardware[i]->HardwareType)
-                {
-                case HardwareType::Cpu:
-                    if (m_cpu_temperature < 0)
-                        GetCpuTemperature(computer->Hardware[i], m_cpu_temperature);
-                    break;
-                default:
-                    break;
-                }
+            case HardwareType::Cpu:
+                GetCpuTemperature(computer->Hardware[i], m_cpu_temperature);
+                break;
+            default:
+                break;
             }
         }
     }
