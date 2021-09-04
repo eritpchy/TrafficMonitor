@@ -52,7 +52,9 @@ public:
 class ITMPlugin
 {
 public:
-    int GetAPIVersion() const { return 1; }
+    //插件接口的版本，仅当修改了插件接口时才会修改这里的返回值。
+    //注意：插件开发者不应该修改这里的返回值，也不应该重写此虚函数。
+    virtual int GetAPIVersion() const { return 1; }
 
     /*
     * 一个插件dll可以提供多个实现IPluginItem接口的对象，对应多个显示项目。
@@ -82,7 +84,7 @@ public:
     * 此函数不一定要重写。如果插件提供了选项设置界面，则应该重写此函数，并在最后返回OR_OPTION_CHANGED或OR_OPTION_UNCHANGED。
     * 返回值为OR_OPTION_NOT_PRVIDED则认为插件不提供选项设置对话框。
     */
-    virtual OptionReturn ShowOptionsDialog(HWND hParent) { return OR_OPTION_NOT_PROVIDED; };
+    virtual OptionReturn ShowOptionsDialog(void* hParent) { return OR_OPTION_NOT_PROVIDED; };
 
     //插件信息的索引
     enum PluginInfoIndex
@@ -99,6 +101,24 @@ public:
     * 获取此插件的信息，根据index的值返回对应的信息
     */
     virtual const wchar_t* GetInfo(PluginInfoIndex index) = 0;
+
+    //主程序的监控信息
+    struct MonitorInfo
+    {
+        unsigned long long up_speed{};
+        unsigned long long down_speed{};
+        int cpu_usage{};
+        int memory_usage{};
+        int gpu_usage{};
+        int hdd_usage{};
+        int cpu_temperature{};
+        int gpu_temperature{};
+        int hdd_temperature{};
+        int main_board_temperature{};
+    };
+
+    //主程序调用此函数以向插件传递所有获取到的监控信息
+    virtual void OnMonitorInfo(const MonitorInfo& monitor_info) {};
 };
 
 /*
