@@ -8,6 +8,8 @@
 
 // COptionsDlg 对话框
 
+#define OPTION_DLG_NAME _T("OptionsDlg")
+
 class COptionsDlg : public CBaseDialog
 {
     DECLARE_DYNAMIC(COptionsDlg)
@@ -40,4 +42,5 @@ public:
     virtual void OnOK();
     afx_msg void OnSize(UINT nType, int cx, int cy);
     virtual void OnCancel();
+    afx_msg void OnBnClickedApplyButton();
 };

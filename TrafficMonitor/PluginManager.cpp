@@ -3,6 +3,8 @@
 #include "Common.h"
 #include "TrafficMonitor.h"
 
+#define PLUGIN_UNSUPPORT_VERSION 0      //不被支持的插件版本
+
 CPluginManager::CPluginManager()
 {
 }
@@ -66,6 +68,13 @@ void CPluginManager::LoadPlugins()
         plugin_info.plugin = TMPluginGetInstance();
         if (plugin_info.plugin == nullptr)
             continue;
+        //检查插件版本
+        int version = plugin_info.plugin->GetAPIVersion();
+        if (version <= PLUGIN_UNSUPPORT_VERSION)
+        {
+            plugin_info.state = PluginState::PS_VERSION_NOT_SUPPORT;
+            continue;
+        }
         //获取插件信息
         for (int i{}; i < ITMPlugin::TMI_MAX; i++)
         {
@@ -82,17 +91,28 @@ void CPluginManager::LoadPlugins()
                 break;
             plugin_info.plugin_items.push_back(item);
             m_plugins.push_back(item);
+            m_plguin_item_map[item] = plugin_info.plugin;
             index++;
         }
     }
+
+    //初始化所有任务栏显示项目
+    for (const auto& display_item : AllDisplayItems)
+    {
+        m_all_display_items_with_plugins.insert(display_item);
+    }
+    for (const auto& display_item : m_plugins)
+    {
+        m_all_display_items_with_plugins.insert(display_item);
+    }
 }
 
-const std::vector<IPluginItem*>& CPluginManager::GetPluginItems()
+const std::vector<IPluginItem*>& CPluginManager::GetPluginItems() const
 {
     return m_plugins;
 }
 
-const std::vector<CPluginManager::PluginInfo>& CPluginManager::GetPlugins()
+const std::vector<CPluginManager::PluginInfo>& CPluginManager::GetPlugins() const
 {
     return m_modules;
 }
@@ -122,6 +142,56 @@ int CPluginManager::GetItemIndex(IPluginItem* item) const
             return iter - m_plugins.begin();
     }
     return -1;
+}
+
+ITMPlugin* CPluginManager::GetPluginByItem(IPluginItem* pItem)
+{
+    if (pItem == nullptr)
+        return nullptr;
+    return m_plguin_item_map[pItem];
+}
+
+void CPluginManager::EnumPlugin(std::function<void(ITMPlugin*)> func) const
+{
+    for (const auto& item : m_modules)
+    {
+        if (item.plugin != nullptr)
+        {
+            func(item.plugin);
+        }
+    }
+}
+
+void CPluginManager::EnumPluginItem(std::function<void(IPluginItem*)> func) const
+{
+    for (const auto& item : m_plugins)
+    {
+        if (item != nullptr)
+        {
+            func(item);
+        }
+    }
+}
+
+const std::set<CommonDisplayItem>& CPluginManager::AllDisplayItemsWithPlugins()
+{
+    return m_all_display_items_with_plugins;
+}
+
+
+int CPluginManager::GetItemWidth(IPluginItem* pItem, CDC* pDC)
+{
+    int width = 0;
+    ITMPlugin* plugin = GetPluginByItem(pItem);
+    if (plugin != nullptr && plugin->GetAPIVersion() >= 3)
+    {
+        width = pItem->GetItemWidthEx(pDC->GetSafeHdc());       //优先使用GetItemWidthEx接口获取宽度
+    }
+    if (width == 0)
+    {
+        width = theApp.DPI(pItem->GetItemWidth());
+    }
+    return width;
 }
 
 std::wstring CPluginManager::PluginInfo::Property(ITMPlugin::PluginInfoIndex index) const

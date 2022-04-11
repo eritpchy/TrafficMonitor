@@ -18,8 +18,10 @@ namespace OpenHardwareMonitorApi
         }
         else
         {
-            const wchar_t* chars = reinterpret_cast<const wchar_t*>((System::Runtime::InteropServices::Marshal::StringToHGlobalUni(str)).ToPointer());
-            return std::wstring(chars);
+            const wchar_t* chars = (const wchar_t*)(Runtime::InteropServices::Marshal::StringToHGlobalUni(str)).ToPointer();
+            std::wstring os = chars;
+            Runtime::InteropServices::Marshal::FreeHGlobal(IntPtr((void*)chars));
+            return os;
         }
     }
 
@@ -75,6 +77,11 @@ namespace OpenHardwareMonitorApi
             return m_gpu_ati_usage;
     }
 
+    float COpenHardwareMonitor::CpuFreq()
+    {
+            return m_cpu_freq;
+    }
+
     const std::map<std::wstring, float>& COpenHardwareMonitor::AllHDDTemperature()
     {
         return m_all_hdd_temperature;
@@ -109,11 +116,39 @@ namespace OpenHardwareMonitorApi
     {
         MonitorGlobal::Instance()->computer->IsMotherboardEnabled = enable;
     }
-
+    bool COpenHardwareMonitor::GetCPUFreq(IHardware^ hardware, float& freq) {
+        for (int i = 0; i < hardware->Sensors->Length; i++)
+        {
+            if (hardware->Sensors[i]->SensorType == SensorType::Clock)
+            {
+                String^ name = hardware->Sensors[i]->Name;
+                if (name != L"Bus Speed")
+                    m_all_cpu_clock[ClrStringToStdWstring(name)] = Convert::ToDouble(hardware->Sensors[i]->Value);
+            }
+        }
+        float sum{};
+        for (auto i : m_all_cpu_clock)
+            sum += i.second;
+        freq = sum / m_all_cpu_clock.size() / 1000.0;
+        return true;
+    }
     bool COpenHardwareMonitor::GetHardwareTemperature(IHardware^ hardware, float& temperature)
     {
         temperature = -1;
         std::vector<float> all_temperature;
+        float core_temperature{ -1 };
+        System::String^ temperature_name;
+        switch (hardware->HardwareType)
+        {
+        case HardwareType::Cpu:
+            temperature_name = L"Core Average";
+            break;
+        case HardwareType::GpuNvidia: case HardwareType::GpuAmd:
+            temperature_name = L"GPU Core";
+            break;
+        default:
+            break;
+        }
         for (int i = 0; i < hardware->Sensors->Length; i++)
         {
             //找到温度传感器
@@ -121,7 +156,14 @@ namespace OpenHardwareMonitorApi
             {
                 float cur_temperture = Convert::ToDouble(hardware->Sensors[i]->Value);
                 all_temperature.push_back(cur_temperture);
+                if (hardware->Sensors[i]->Name == temperature_name) //如果找到了名称为temperature_name的温度传感器，则将温度保存到core_temperature里
+                    core_temperature = cur_temperture;
             }
+        }
+        if (core_temperature >= 0)
+        {
+            temperature = core_temperature;
+            return true;
         }
         if (!all_temperature.empty())
         {
@@ -131,7 +173,7 @@ namespace OpenHardwareMonitorApi
                 sum += i;
             temperature = sum / all_temperature.size();
             return true;
-       }
+        }
         //如果没有找到温度传感器，则在SubHardware中寻找
         for (int i = 0; i < hardware->SubHardware->Length; i++)
         {
@@ -225,6 +267,34 @@ namespace OpenHardwareMonitorApi
         m_gpu_nvidia_usage = -1;
         m_gpu_ati_usage = -1;
         m_all_hdd_temperature.clear();
+        m_all_hdd_usage.clear();
+    }
+
+    void COpenHardwareMonitor::InsertValueToMap(std::map<std::wstring, float>& value_map, const std::wstring& key, float value)
+    {
+        auto iter = value_map.find(key);
+        if (iter == value_map.end())
+        {
+            value_map[key] = value;
+        }
+        else
+        {
+            std::wstring key_exist = iter->first;
+            size_t index = key_exist.rfind(L'#');   //查找字符串是否含有#号
+            if (index != std::wstring::npos)
+            {
+                //取到#号后面的数字，将其加1
+                int num = _wtoi(key_exist.substr(index + 1).c_str());
+                num++;
+                key_exist = key_exist.substr(0, index + 1);
+                key_exist += std::to_wstring(num);
+            }
+            else //没有#号则在末尾添加" #1"
+            {
+                key_exist += L" #1";
+            }
+            value_map[key_exist] = value;
+        }
     }
 
     void COpenHardwareMonitor::GetHardwareInfo()
@@ -240,6 +310,9 @@ namespace OpenHardwareMonitorApi
                 //查找硬件类型
                 switch (computer->Hardware[i]->HardwareType)
                 {
+                case HardwareType::Cpu:
+                    GetCPUFreq(computer->Hardware[i], m_cpu_freq);
+                    break;
                 case HardwareType::GpuNvidia:
                     if (m_gpu_nvidia_temperature < 0)
                         GetHardwareTemperature(computer->Hardware[i], m_gpu_nvidia_temperature);
@@ -256,14 +329,16 @@ namespace OpenHardwareMonitorApi
                 {
                     float cur_hdd_temperature = -1;
                     GetHardwareTemperature(computer->Hardware[i], cur_hdd_temperature);
-                    m_all_hdd_temperature[ClrStringToStdWstring(computer->Hardware[i]->Name)] = cur_hdd_temperature;
+                    //m_all_hdd_temperature[ClrStringToStdWstring(computer->Hardware[i]->Name)] = cur_hdd_temperature;
+                    InsertValueToMap(m_all_hdd_temperature, ClrStringToStdWstring(computer->Hardware[i]->Name), cur_hdd_temperature);
                     float cur_hdd_usage = -1;
                     GetHddUsage(computer->Hardware[i], cur_hdd_usage);
-                    m_all_hdd_usage[ClrStringToStdWstring(computer->Hardware[i]->Name)] = cur_hdd_usage;
+                    //m_all_hdd_usage[ClrStringToStdWstring(computer->Hardware[i]->Name)] = cur_hdd_usage;
+                    InsertValueToMap(m_all_hdd_usage, ClrStringToStdWstring(computer->Hardware[i]->Name), cur_hdd_usage);
                     if (m_hdd_temperature < 0)
                         m_hdd_temperature = cur_hdd_temperature;
                 }
-                    break;
+                break;
                 case HardwareType::Motherboard:
                     if (m_main_board_temperature < 0)
                         GetHardwareTemperature(computer->Hardware[i], m_main_board_temperature);

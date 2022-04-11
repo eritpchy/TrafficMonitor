@@ -64,6 +64,9 @@ const wchar_t* CPluginDemo::GetInfo(PluginInfoIndex index)
         return L"Copyright (C) by Zhong Yang 2021";
     case TMI_VERSION:
         return L"1.0";
+    case ITMPlugin::TMI_URL:
+        return L"https://github.com/zhongyang219/TrafficMonitor";
+        break;
     default:
         break;
     }
@@ -83,6 +86,20 @@ ITMPlugin::OptionReturn CPluginDemo::ShowOptionsDialog(void* hParent)
     return ITMPlugin::OR_OPTION_UNCHANGED;
 }
 
+
+void CPluginDemo::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* data)
+{
+    switch (index)
+    {
+    case ITMPlugin::EI_CONFIG_DIR:
+        //从配置文件读取配置
+        g_data.LoadConfig(std::wstring(data));
+
+        break;
+    default:
+        break;
+    }
+}
 
 ITMPlugin* TMPluginGetInstance()
 {

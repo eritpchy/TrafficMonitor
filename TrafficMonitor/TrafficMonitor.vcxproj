@@ -429,6 +429,7 @@
     <ClInclude Include="..\include\PluginInterface.h" />
     <ClInclude Include="AboutDlg.h" />
     <ClInclude Include="AdapterCommon.h" />
+    <ClInclude Include="AppAlreadyRuningDlg.h" />
     <ClInclude Include="auto_start_helper.h" />
     <ClInclude Include="BaseDialog.h" />
     <ClInclude Include="CalendarHelper.h" />
@@ -470,6 +471,7 @@
     <ClInclude Include="PluginManager.h" />
     <ClInclude Include="PluginManagerDlg.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SelectConnectionsDlg.h" />
     <ClInclude Include="SetItemOrderDlg.h" />
     <ClInclude Include="SimpleXML.h" />
     <ClInclude Include="SkinDlg.h" />
@@ -491,11 +493,13 @@
     <ClInclude Include="TrafficMonitorDlg.h" />
     <ClInclude Include="UpdateHelper.h" />
     <ClInclude Include="WIC.h" />
+    <ClInclude Include="WindowsSettingHelper.h" />
     <ClInclude Include="WinVersionHelper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AboutDlg.cpp" />
     <ClCompile Include="AdapterCommon.cpp" />
+    <ClCompile Include="AppAlreadyRuningDlg.cpp" />
     <ClCompile Include="auto_start_helper.cpp" />
     <ClCompile Include="BaseDialog.cpp" />
     <ClCompile Include="CalendarHelper.cpp" />
@@ -535,6 +539,7 @@
     <ClCompile Include="PluginInfoDlg.cpp" />
     <ClCompile Include="PluginManager.cpp" />
     <ClCompile Include="PluginManagerDlg.cpp" />
+    <ClCompile Include="SelectConnectionsDlg.cpp" />
     <ClCompile Include="SetItemOrderDlg.cpp" />
     <ClCompile Include="SimpleXML.cpp" />
     <ClCompile Include="SkinDlg.cpp" />
@@ -573,6 +578,7 @@
     <ClCompile Include="TrafficMonitorDlg.cpp" />
     <ClCompile Include="UpdateHelper.cpp" />
     <ClCompile Include="WIC.cpp" />
+    <ClCompile Include="WindowsSettingHelper.cpp" />
     <ClCompile Include="WinVersionHelper.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -23,26 +23,21 @@ CAutoAdaptSettingsDlg::~CAutoAdaptSettingsDlg()
 
 void CAutoAdaptSettingsDlg::InitComboBox(CComboBox& combo_box, int style_sel)
 {
-	combo_box.AddString(CCommon::LoadText(IDS_LIGHT_MODE));
 	for (int i = 0; i < TASKBAR_DEFAULT_STYLE_NUM; i++)
 		combo_box.AddString(CCommon::LoadText(IDS_PRESET, std::to_wstring(i + 1).c_str()));
-	if (style_sel == TASKBAR_DEFAULT_LIGHT_STYLE_INDEX)
-		combo_box.SetCurSel(0);
-	else if (style_sel >= 0 && style_sel < TASKBAR_DEFAULT_STYLE_NUM)
-		combo_box.SetCurSel(style_sel + 1);
+	if (style_sel >= 0 && style_sel < TASKBAR_DEFAULT_STYLE_NUM)
+		combo_box.SetCurSel(style_sel);
 	else
-		combo_box.SetCurSel(1);
+		combo_box.SetCurSel(0);
 }
 
 int CAutoAdaptSettingsDlg::GetComboBoxSel(const CComboBox& combo_box)
 {
 	int sel = combo_box.GetCurSel();
-	if (sel == 0)
-		return TASKBAR_DEFAULT_LIGHT_STYLE_INDEX;
-	else if (sel >= 1 && sel < TASKBAR_DEFAULT_STYLE_NUM + 1)
-		return sel - 1;
+	if (sel >= 0 && sel < TASKBAR_DEFAULT_STYLE_NUM)
+		return sel;
 	else
-		return 1;
+		return 0;
 }
 
 void CAutoAdaptSettingsDlg::DoDataExchange(CDataExchange* pDX)
@@ -67,6 +62,11 @@ BOOL CAutoAdaptSettingsDlg::OnInitDialog()
 	// TODO:  在此添加额外的初始化
 	InitComboBox(m_dark_mode_default_style_combo, m_data.dark_default_style);
 	InitComboBox(m_light_mode_default_style_combo, m_data.light_default_style);
+    CheckDlgButton(IDC_AUTO_SAVE_TO_PRESET_CHECK, m_data.auto_save_taskbar_color_settings_to_preset);
+
+    m_toolTip.Create(this);
+    m_toolTip.SetMaxTipWidth(theApp.DPI(300));
+    m_toolTip.AddTool(GetDlgItem(IDC_AUTO_SAVE_TO_PRESET_CHECK), CCommon::LoadText(IDS_AUTO_SAVE_TO_PRESET_TIP));
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 				  // 异常: OCX 属性页应返回 FALSE
@@ -80,6 +80,17 @@ void CAutoAdaptSettingsDlg::OnOK()
 	//获取控件中的设置
 	m_data.dark_default_style = GetComboBoxSel(m_dark_mode_default_style_combo);
 	m_data.light_default_style = GetComboBoxSel(m_light_mode_default_style_combo);
+    m_data.auto_save_taskbar_color_settings_to_preset = (IsDlgButtonChecked(IDC_AUTO_SAVE_TO_PRESET_CHECK) != 0);
 
 	CDialog::OnOK();
+}
+
+
+BOOL CAutoAdaptSettingsDlg::PreTranslateMessage(MSG* pMsg)
+{
+    // TODO: 在此添加专用代码和/或调用基类
+    if (pMsg->message == WM_MOUSEMOVE)
+        m_toolTip.RelayEvent(pMsg);
+
+    return CDialog::PreTranslateMessage(pMsg);
 }

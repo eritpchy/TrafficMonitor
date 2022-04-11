@@ -231,6 +231,15 @@ CString CCommon::UsageToString(int usage, const PublicSettingData& cfg)
     return str_val;
 }
 
+CString CCommon::FreqToString(float freq, const PublicSettingData& cfg)
+{
+    CString str_val;
+    if (freq < 0)
+        str_val = _T("--");
+    else
+        str_val.Format(_T("%.2f GHz"), freq);
+    return str_val;
+}
 //CString CCommon::KBytesToString(unsigned int kb_size)
 //{
 //  CString k_bytes_str;
@@ -422,9 +431,33 @@ void CCommon::GetFiles(const wchar_t* path, vector<wstring>& files)
     _findclose(hFile);
 }
 
+void CCommon::GetFiles(const wchar_t* path, std::function<void(const wstring&)> func)
+{
+    //文件句柄
+    intptr_t hFile = 0;
+    _wfinddata_t fileinfo;
+    wstring file_name;
+    if ((hFile = _wfindfirst(path, &fileinfo)) != -1)
+    {
+        do
+        {
+            file_name.assign(fileinfo.name);
+            if (file_name != L"." && file_name != L"..")
+                func(file_name);
+        } while (_wfindnext(hFile, &fileinfo) == 0);
+    }
+    _findclose(hFile);
+}
+
 bool CCommon::FileExist(LPCTSTR file_name)
 {
     return (PathFileExists(file_name) != 0);
+}
+
+bool CCommon::IsFolder(const wstring& path)
+{
+    DWORD dwAttrib = GetFileAttributes(path.c_str());
+    return (dwAttrib & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
 bool CCommon::MoveAFile(LPCTSTR exist_file, LPCTSTR new_file)

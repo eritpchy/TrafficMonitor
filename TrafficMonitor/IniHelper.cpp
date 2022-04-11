@@ -1,5 +1,6 @@
 ﻿#include "stdafx.h"
 #include "IniHelper.h"
+#include "TrafficMonitor.h"
 
 
 CIniHelper::CIniHelper(const wstring& file_path)
@@ -151,6 +152,19 @@ void CIniHelper::GetBoolArray(const wchar_t * AppName, const wchar_t * KeyName, 
     }
 }
 
+void CIniHelper::WriteStringList(const wchar_t* AppName, const wchar_t* KeyName, const vector<wstring>& values)
+{
+    wstring str_write = MergeStringList(values);
+    _WriteString(AppName, KeyName, str_write);
+}
+
+void CIniHelper::GetStringList(const wchar_t* AppName, const wchar_t* KeyName, vector<wstring>& values, const vector<wstring>& default_value) const
+{
+    wstring default_str = MergeStringList(default_value);
+    wstring str_value = _GetString(AppName, KeyName, default_str.c_str());
+    SplitStringList(values, str_value);
+}
+
 void CIniHelper::SaveFontData(const wchar_t * AppName, const FontInfo & font)
 {
     WriteString(AppName, L"font_name", wstring(font.name));
@@ -194,7 +208,7 @@ void CIniHelper::LoadFontData(const wchar_t * AppName, FontInfo & font, const Fo
     font.strike_out = style[3];
 }
 
-void CIniHelper::LoadMainWndColors(const wchar_t * AppName, const wchar_t * KeyName, std::map<DisplayItem, COLORREF>& text_colors, COLORREF default_color)
+void CIniHelper::LoadMainWndColors(const wchar_t * AppName, const wchar_t * KeyName, std::map<CommonDisplayItem, COLORREF>& text_colors, COLORREF default_color)
 {
     CString default_str;
     default_str.Format(_T("%d"), default_color);
@@ -203,21 +217,19 @@ void CIniHelper::LoadMainWndColors(const wchar_t * AppName, const wchar_t * KeyN
     std::vector<wstring> split_result;
     CCommon::StringSplit(str, L',', split_result);
     size_t index = 0;
-    for (auto iter = AllDisplayItems.begin(); iter != AllDisplayItems.end(); ++iter)
+    for (auto iter = theApp.m_plugins.AllDisplayItemsWithPlugins().begin(); iter != theApp.m_plugins.AllDisplayItemsWithPlugins().end(); ++iter)
     {
         if (index < split_result.size())
-        {
             text_colors[*iter] = _wtoi(split_result[index].c_str());
-        }
+        else if (!split_result.empty())
+            text_colors[*iter] = _wtoi(split_result[0].c_str());
         else
-        {
             text_colors[*iter] = default_color;
-        }
         index++;
     }
 }
 
-void CIniHelper::SaveMainWndColors(const wchar_t * AppName, const wchar_t * KeyName, const std::map<DisplayItem, COLORREF>& text_colors)
+void CIniHelper::SaveMainWndColors(const wchar_t * AppName, const wchar_t * KeyName, const std::map<CommonDisplayItem, COLORREF>& text_colors)
 {
     CString str;
     for (auto iter = text_colors.begin(); iter != text_colors.end(); ++iter)
@@ -230,7 +242,7 @@ void CIniHelper::SaveMainWndColors(const wchar_t * AppName, const wchar_t * KeyN
 
 }
 
-void CIniHelper::LoadTaskbarWndColors(const wchar_t * AppName, const wchar_t * KeyName, std::map<DisplayItem, TaskbarItemColor>& text_colors, COLORREF default_color)
+void CIniHelper::LoadTaskbarWndColors(const wchar_t * AppName, const wchar_t * KeyName, std::map<CommonDisplayItem, TaskbarItemColor>& text_colors, COLORREF default_color)
 {
     CString default_str;
     default_str.Format(_T("%d"), default_color);
@@ -239,15 +251,19 @@ void CIniHelper::LoadTaskbarWndColors(const wchar_t * AppName, const wchar_t * K
     std::vector<wstring> split_result;
     CCommon::StringSplit(str, L',', split_result);
     size_t index = 0;
-    for (auto iter = AllDisplayItems.begin(); iter != AllDisplayItems.end(); ++iter)
+    for (auto iter = theApp.m_plugins.AllDisplayItemsWithPlugins().begin(); iter != theApp.m_plugins.AllDisplayItemsWithPlugins().end(); ++iter)
     {
         if (index < split_result.size())
             text_colors[*iter].label = _wtoi(split_result[index].c_str());
+        else if (!split_result.empty())
+            text_colors[*iter].label = _wtoi(split_result[0].c_str());
         else
             text_colors[*iter].label = default_color;
 
         if (index + 1 < split_result.size())
             text_colors[*iter].value = _wtoi(split_result[index + 1].c_str());
+        else if (split_result.size() > 1)
+            text_colors[*iter].value = _wtoi(split_result[1].c_str());
         else
             text_colors[*iter].value = default_color;
         index += 2;
@@ -255,7 +271,7 @@ void CIniHelper::LoadTaskbarWndColors(const wchar_t * AppName, const wchar_t * K
 
 }
 
-void CIniHelper::SaveTaskbarWndColors(const wchar_t * AppName, const wchar_t * KeyName, const std::map<DisplayItem, TaskbarItemColor>& text_colors)
+void CIniHelper::SaveTaskbarWndColors(const wchar_t * AppName, const wchar_t * KeyName, const std::map<CommonDisplayItem, TaskbarItemColor>& text_colors)
 {
     CString str;
     for (auto iter = text_colors.begin(); iter != text_colors.end(); ++iter)
@@ -265,6 +281,26 @@ void CIniHelper::SaveTaskbarWndColors(const wchar_t * AppName, const wchar_t * K
         str += tmp;
     }
     _WriteString(AppName, KeyName, wstring(str));
+}
+
+void CIniHelper::LoadPluginDisplayStr(bool is_main_window)
+{
+    DispStrings& disp_str{ is_main_window ? theApp.m_main_wnd_data.disp_str : theApp.m_taskbar_data.disp_str };
+    std::wstring app_name{ is_main_window ? L"plugin_display_str_main_window" : L"plugin_display_str_taskbar_window" };
+    for (const auto& plugin : theApp.m_plugins.GetPluginItems())
+    {
+        disp_str.Load(plugin->GetItemId(), GetString(app_name.c_str(), plugin->GetItemId(), plugin->GetItemLableText()));
+    }
+}
+
+void CIniHelper::SavePluginDisplayStr(bool is_main_window)
+{
+    DispStrings& disp_str{ is_main_window ? theApp.m_main_wnd_data.disp_str : theApp.m_taskbar_data.disp_str };
+    std::wstring app_name{ is_main_window ? L"plugin_display_str_main_window" : L"plugin_display_str_taskbar_window" };
+    for (const auto& plugin : theApp.m_plugins.GetPluginItems())
+    {
+        WriteString(app_name.c_str(), plugin->GetItemId(), disp_str.Get(plugin));
+    }
 }
 
 void CIniHelper::_WriteString(const wchar_t * AppName, const wchar_t * KeyName, const wstring & str)
@@ -290,12 +326,16 @@ void CIniHelper::_WriteString(const wchar_t * AppName, const wchar_t * KeyName, 
         key_pos = m_ini_str.find(wstring(L"\n") + KeyName + L'=', app_pos);
     if (key_pos >= app_end_pos)             //找不到KeyName，则插入一个
     {
-        wchar_t buff[256];
-        swprintf_s(buff, L"%s = %s\n", KeyName, str.c_str());
+        //wchar_t buff[256];
+        //swprintf_s(buff, L"%s = %s\n", KeyName, str.c_str());
+        std::wstring str_temp = KeyName;
+        str_temp += L" = ";
+        str_temp += str;
+        str_temp += L"\n";
         if (app_end_pos == wstring::npos)
-            m_ini_str += buff;
+            m_ini_str += str_temp;
         else
-            m_ini_str.insert(app_end_pos, buff);
+            m_ini_str.insert(app_end_pos, str_temp);
     }
     else    //找到了KeyName，将等号到换行符之间的文本替换
     {
@@ -357,5 +397,33 @@ wstring CIniHelper::_GetString(const wchar_t * AppName, const wchar_t * KeyName,
         //如果前后有空格，则将其删除
         CCommon::StringNormalize(return_str);
         return return_str;
+    }
+}
+
+wstring CIniHelper::MergeStringList(const vector<wstring>& values)
+{
+    wstring str_merge;
+    int index = 0;
+    //在每个字符串前后加上引号，再将它们用逗号连接起来
+    for (const wstring& str : values)
+    {
+        if (index > 0)
+            str_merge.push_back(L',');
+        str_merge.push_back(L'\"');
+        str_merge += str;
+        str_merge.push_back(L'\"');
+        index++;
+    }
+    return str_merge;
+}
+
+void CIniHelper::SplitStringList(vector<wstring>& values, wstring str_value)
+{
+    CCommon::StringSplit(str_value, wstring(L"\",\""), values);
+    if (!values.empty())
+    {
+        //结果中第一项前面和最后一项的后面各还有一个引号，将它们删除
+        values.front() = values.front().substr(1);
+        values.back().pop_back();
     }
 }

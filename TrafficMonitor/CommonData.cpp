@@ -1,15 +1,33 @@
 ﻿#include "stdafx.h"
 #include "CommonData.h"
 #include "Common.h"
+#include "CalendarHelper.h"
+#include "TrafficMonitor.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
-//HistoryTraffic
-unsigned __int64 HistoryTraffic::kBytes() const
+int Date::week() const
 {
-    return up_kBytes + down_kBytes;
+    //计算当前是一年的第几天
+    int days{};
+    for (int i{ 1 }; i < month; i++)
+    {
+        days += CCalendarHelper::DaysInMonth(year, i);
+    }
+    days += day;
+    //计算这一年的1月1日是星期几
+    int week_day = CCalendarHelper::CaculateWeekDay(year, 1, 1);
+    if (theApp.m_cfg_data.m_sunday_first)
+    {
+        days += (week_day - 1);
+    }
+    else
+    {
+        days += (week_day - 2);
+    }
+    return days / 7 + 1;
 }
 
-bool HistoryTraffic::DateGreater(const HistoryTraffic& a, const HistoryTraffic& b)
+bool Date::DateGreater(const Date& a, const Date& b)
 {
     if (a.year != b.year)
         return a.year > b.year;
@@ -21,19 +39,27 @@ bool HistoryTraffic::DateGreater(const HistoryTraffic& a, const HistoryTraffic& 
         return false;
 }
 
-bool HistoryTraffic::DateEqual(const HistoryTraffic& a, const HistoryTraffic& b)
+bool Date::DateEqual(const Date& a, const Date& b)
 {
     return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 
 ///////////////////////////////////////////////////////////////////////////////////
-wstring& DispStrings::Get(DisplayItem item)
+//HistoryTraffic
+unsigned __int64 HistoryTraffic::kBytes() const
+{
+    return up_kBytes + down_kBytes;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////
+wstring& DispStrings::Get(CommonDisplayItem item)
 {
     return map_str[item];
 }
 
-const std::map<DisplayItem, wstring>& DispStrings::GetAllItems() const
+const std::map<CommonDisplayItem, wstring>& DispStrings::GetAllItems() const
 {
     return map_str;
 }
@@ -59,6 +85,14 @@ bool DispStrings::IsInvalid() const
     return false;
 }
 
+void DispStrings::Load(const std::wstring& plugin_id, const std::wstring& disp_str)
+{
+    auto plugin = theApp.m_plugins.GetItemById(plugin_id);
+    if (plugin != nullptr)
+    {
+        map_str[plugin] = disp_str;
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 bool StringSet::Contains(const std::wstring& str) const
@@ -97,4 +131,40 @@ std::wstring StringSet::ToString() const
     if (!item_str.empty())
         item_str.pop_back();
     return item_str;
+}
+
+void StringSet::FromVector(const std::vector<std::wstring>& vec)
+{
+    string_set.clear();
+    for (const auto& str : vec)
+        string_set.insert(str);
+}
+
+std::vector<std::wstring> StringSet::ToVector() const
+{
+    std::vector<std::wstring> vec;
+    for (const auto& str : string_set)
+        vec.push_back(str);
+    return vec;
+}
+
+std::set<std::wstring>& StringSet::data()
+{
+    return string_set;
+}
+
+void TaskBarSettingData::ValidItemSpace()
+{
+    if (item_space < 0)
+        item_space = 0;
+    if (item_space > 32)
+        item_space = 32;
+}
+
+unsigned __int64 TaskBarSettingData::GetNetspeedFigureMaxValueInBytes() const
+{
+    if (netspeed_figure_max_value_unit == 0)        //单位为KB
+        return static_cast<unsigned __int64>(netspeed_figure_max_value) * 1024;
+    else
+        return static_cast<unsigned __int64>(netspeed_figure_max_value) * 1024 * 1024;
 }

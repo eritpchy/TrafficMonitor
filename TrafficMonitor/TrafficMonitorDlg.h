@@ -27,17 +27,17 @@
 // CTrafficMonitorDlg 对话框
 class CTrafficMonitorDlg : public CDialog
 {
-// 构造
+    // 构造
 public:
     CTrafficMonitorDlg(CWnd* pParent = NULL);   // 标准构造函数
     ~CTrafficMonitorDlg();
 
-// 对话框数据
+    // 对话框数据
 #ifdef AFX_DESIGN_TIME
     enum { IDD = IDD_TRAFFICMONITOR_DIALOG };
 #endif
 
-    protected:
+protected:
     virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 
 
@@ -87,6 +87,7 @@ protected:
     vector<CRect> m_last_screen_rects;       //上一次所有屏幕的范围（不包含任务栏）
     CSize m_screen_size;        //屏幕的大小（包含任务栏）
     CSkinFile m_skin;
+    CommonDisplayItem m_clicked_item;           //鼠标点击的项目
 
     CFont m_font;           //字体
 
@@ -135,6 +136,7 @@ protected:
     void IniConnection();   //初始化连接
 
     MIB_IFROW GetConnectIfTable(int connection_index);    //获取当前选择的网络连接的MIB_IFROW对象。connection_index为m_connections中的索引
+    NetWorkConection GetConnection(int connection_index); //获取当前选择的网络连接的NetWorkConection对象。connection_index为m_connections中的索引
 
     void IniConnectionMenu(CMenu* pMenu);   //初始化“选择网络连接”菜单
     void IniTaskBarConnectionMenu();        //初始化任务栏窗口的“选择网络连接”菜单
@@ -154,6 +156,8 @@ protected:
 
     void _OnOptions(int tab);   //打开“选项”对话框的处理，参数为打开时切换的标签
 
+    void ApplySettings(COptionsDlg& optionsDlg);
+
     void SetItemPosition();     //设置显示的4个项目的位置
     void LoadSkinLayout();      //从当前皮肤获取布局数据
 
@@ -164,6 +168,9 @@ protected:
 
     void TaskbarShowHideItem(DisplayItem type);
 
+    //判断一个点在哪个显示项目的区域内，并保存到m_clicked_item
+    void CheckClickedItem(CPoint point);
+
 public:
     //void ApplySettings();
     bool IsTemperatureNeeded() const;       //判断是否需要显示温度信息
@@ -171,19 +178,17 @@ public:
 protected:
     // 生成的消息映射函数
     virtual BOOL OnInitDialog();
-//  afx_msg void OnPaint();
+    //  afx_msg void OnPaint();
     afx_msg HCURSOR OnQueryDragIcon();
     DECLARE_MESSAGE_MAP()
 public:
-//  afx_msg LRESULT OnNcHitTest(CPoint point);
+    //  afx_msg LRESULT OnNcHitTest(CPoint point);
     afx_msg void OnTimer(UINT_PTR nIDEvent);
-//  afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
+    //  afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
     afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
     afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
     afx_msg void OnNetworkInfo();
     afx_msg void OnAlwaysOnTop();
-    afx_msg void OnUpdateAlwaysOnTop(CCmdUI *pCmdUI);
-    afx_msg void OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMenu);
     afx_msg void OnTransparency100();
     afx_msg void OnTransparency80();
     afx_msg void OnTransparency60();
@@ -193,28 +198,20 @@ public:
     afx_msg void OnInitMenu(CMenu* pMenu);
     virtual BOOL PreTranslateMessage(MSG* pMsg);
     afx_msg void OnLockWindowPos();
-    afx_msg void OnUpdateLockWindowPos(CCmdUI *pCmdUI);
     afx_msg void OnMove(int x, int y);
 protected:
     afx_msg LRESULT OnNotifyIcon(WPARAM wParam, LPARAM lParam);
 public:
     afx_msg void OnShowNotifyIcon();
-    afx_msg void OnUpdateShowNotifyIcon(CCmdUI *pCmdUI);
     afx_msg void OnDestroy();
     afx_msg void OnShowCpuMemory();
-    afx_msg void OnUpdateShowCpuMemory(CCmdUI *pCmdUI);
     afx_msg void OnMousePenetrate();
-    afx_msg void OnUpdateMousePenetrate(CCmdUI *pCmdUI);
     //afx_msg void OnTextColor();
     afx_msg void OnShowTaskBarWnd();
-    afx_msg void OnUpdateShowTaskBarWnd(CCmdUI *pCmdUI);
     afx_msg void OnAppAbout();
     afx_msg void OnShowCpuMemory2();
-//  afx_msg void OnAutoRunWhenStart();
     afx_msg void OnShowMainWnd();
-    afx_msg void OnUpdateShowMainWnd(CCmdUI *pCmdUI);
     afx_msg void OnChangeSkin();
-//  afx_msg void OnUpdateAutoRunWhenStart(CCmdUI *pCmdUI);
     afx_msg LRESULT OnTaskBarCreated(WPARAM wParam, LPARAM lParam);
     //afx_msg void OnSetFont();
     afx_msg void OnTrafficHistory();
@@ -227,29 +224,16 @@ protected:
 public:
     afx_msg void OnChangeNotifyIcon();
     afx_msg void OnAlowOutOfBorder();
-    afx_msg void OnUpdateAlowOutOfBorder(CCmdUI *pCmdUI);
     afx_msg void OnCheckUpdate();
 protected:
     afx_msg LRESULT OnTaskbarMenuPopedUp(WPARAM wParam, LPARAM lParam);
 public:
     afx_msg void OnShowNetSpeed();
     afx_msg BOOL OnQueryEndSession();
-    afx_msg void OnShowUpSpeed();
-    afx_msg void OnShowDownSpeed();
-    afx_msg void OnShowCpuUsage();
-    afx_msg void OnShowMemoryUsage();
-    afx_msg void OnShowCpuTemperature();
-    afx_msg void OnShowGpuTemperature();
-    afx_msg void OnShowHddTemperature();
-    afx_msg void OnShowMainBoardTemperature();
-    afx_msg void OnShowHddUsage();
     afx_msg void OnPaint();
 protected:
     afx_msg LRESULT OnDpichanged(WPARAM wParam, LPARAM lParam);
     afx_msg LRESULT OnTaskbarWndClosed(WPARAM wParam, LPARAM lParam);
-public:
-    afx_msg void OnShowGpuUsage();
-protected:
     afx_msg LRESULT OnMonitorInfoUpdated(WPARAM wParam, LPARAM lParam);
     afx_msg LRESULT OnDisplaychange(WPARAM wParam, LPARAM lParam);
     afx_msg LRESULT OnReopenTaksbarWnd(WPARAM wParam, LPARAM lParam);
@@ -257,4 +241,10 @@ public:
     afx_msg void OnExitSizeMove();
     afx_msg void OnPluginManage();
     afx_msg void OnOpenTaskManager();
+protected:
+    afx_msg LRESULT OnSettingsApplied(WPARAM wParam, LPARAM lParam);
+public:
+    afx_msg void OnDisplaySettings();
+    afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+    afx_msg void OnRefreshConnectionList();
 };

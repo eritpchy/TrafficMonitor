@@ -5,7 +5,7 @@
 #pragma once
 
 #ifndef __AFXWIN_H__
-    #error "在包含此文件之前包含“stdafx.h”以生成 PCH 文件"
+#error "在包含此文件之前包含“stdafx.h”以生成 PCH 文件"
 #endif
 
 #include "resource.h"       // 主符号
@@ -47,6 +47,7 @@ public:
     int m_used_memory{};    //可用物理内存（单位为KB）
     int m_total_memory{};   //物理内存总量（单位为KB）
     float m_cpu_temperature{ -1 };  //CPU温度
+    float m_cpu_freq{ -1 };  //CPU 频率
     float m_gpu_temperature{ -1 };  //显卡温度
     float m_hdd_temperature{ -1 };  //硬盘温度
     float m_main_board_temperature{ -1 };    //主板温度
@@ -73,6 +74,7 @@ public:
     bool m_last_light_mode{};
     bool m_show_mouse_panetrate_tip{};  //是否显示开启“鼠标穿透”时的提示消息。
     bool m_show_dot_net_notinstalled_tip{};
+    bool m_is_windows11_taskbar{ false };  //是否为Windows11的任务栏
 
     //bool m_is_windows10_fall_creator;
     CWinVersionHelper m_win_version;        //当前Windows的版本
@@ -80,8 +82,6 @@ public:
     HICON m_notify_icons[MAX_NOTIFY_ICON];
 
     CTaskbarDefaultStyle m_taskbar_default_style;
-
-    HWND m_option_dlg{};        //选项设置对话框的句柄
 
     CPluginManager m_plugins;
 
@@ -101,6 +101,7 @@ public:
 
     void LoadConfig();
     void SaveConfig();
+    void LoadPluginDisabledSettings();
 
     void LoadGlobalConfig();
     void SaveGlobalConfig();
@@ -117,11 +118,11 @@ public:
     static UINT CheckUpdateThreadFunc(LPVOID lpParam);
     static UINT InitOpenHardwareMonitorLibThreadFunc(LPVOID lpParam);
 
-    void SetAutoRun(bool auto_run);
-    bool GetAutoRun();
+    bool SetAutoRun(bool auto_run);
+    bool GetAutoRun(wstring* auto_run_path);        //判断是否开机自动进行，如果是，将开机自动运行的路径写入auto_run_path
 
-    void SetAutoRunByRegistry(bool auto_run);       //通过注册表实现开机自启动
-    void SetAutoRunByTaskScheduler(bool auto_run);  //通过任务计划实现开机自启动
+    bool SetAutoRunByRegistry(bool auto_run);       //通过注册表实现开机自启动
+    bool SetAutoRunByTaskScheduler(bool auto_run);  //通过任务计划实现开机自启动
 
     //获取系统信息文本
     CString GetSystemInfoString();
@@ -139,8 +140,13 @@ public:
     void InitOpenHardwareLibInThread();     //开启一个后台线程初始化OpenHardwareMonitor
     void UpdateOpenHardwareMonitorEnableState();    //更新硬件监控的启用/禁用状态
 
-    void UpdateTaskbarWndMenu();      //更新任务栏窗口右键菜单
+    //void UpdateTaskbarWndMenu();      //更新任务栏窗口右键菜单
     bool IsForceShowNotifyIcon();       //是否需要强制显示通知区图标
+
+    std::wstring GetPlauginTooltipInfo() const;
+    bool IsTaksbarItemDisplayed(CommonDisplayItem item) const;
+
+    void SendSettingsToPlugin();    //向所有插件发送当前的选项设置
 
 private:
     //int m_no_multistart_warning_time{};       //用于设置在开机后多长时间内不弹出“已经有一个程序正在运行”的警告提示
@@ -156,7 +162,7 @@ private:
 public:
     virtual BOOL InitInstance();
 
-// 实现
+    // 实现
 
     DECLARE_MESSAGE_MAP()
     afx_msg void OnHelp();

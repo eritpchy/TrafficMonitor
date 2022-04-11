@@ -28,6 +28,63 @@ bool CommonDisplayItem::operator<(const CommonDisplayItem& item) const
         return theApp.m_plugins.GetItemIndex(plugin_item) < theApp.m_plugins.GetItemIndex(item.plugin_item);
 }
 
+CString CommonDisplayItem::GetItemName() const
+{
+    CString item_name;
+    if (is_plugin)
+    {
+        if (plugin_item != nullptr)
+            item_name = plugin_item->GetItemName();
+    }
+    else
+    {
+        switch (item_type)
+        {
+        case TDI_UP:
+            item_name = CCommon::LoadText(IDS_UPLOAD);
+            break;
+        case TDI_DOWN:
+            item_name = CCommon::LoadText(IDS_DOWNLOAD);
+            break;
+        case TDI_TOTAL_SPEED:
+            item_name = CCommon::LoadText(IDS_TOTAL_NET_SPEED);
+            break;
+        case TDI_CPU:
+            item_name = CCommon::LoadText(IDS_CPU_USAGE);
+            break;
+        case TDI_MEMORY:
+            item_name = CCommon::LoadText(IDS_MEMORY_USAGE);
+            break;
+#ifndef WITHOUT_TEMPERATURE
+        case TDI_GPU_USAGE:
+            item_name = CCommon::LoadText(IDS_GPU_USAGE);
+            break;
+        case TDI_CPU_TEMP:
+            item_name = CCommon::LoadText(IDS_CPU_TEMPERATURE);
+            break;
+        case TDI_GPU_TEMP:
+            item_name = CCommon::LoadText(IDS_GPU_TEMPERATURE);
+            break;
+        case TDI_HDD_TEMP:
+            item_name = CCommon::LoadText(IDS_HDD_TEMPERATURE);
+            break;
+        case TDI_MAIN_BOARD_TEMP:
+            item_name = CCommon::LoadText(IDS_MAINBOARD_TEMPERATURE);
+            break;
+        case TDI_HDD_USAGE:
+            item_name = CCommon::LoadText(IDS_HDD_USAGE);
+            break;
+        case TDI_CPU_FREQ:
+            item_name = CCommon::LoadText(IDS_CPU_FREQ);
+            break;
+#endif
+        default:
+            break;
+        }
+    }
+    return item_name;
+}
+
 bool CommonDisplayItem::operator==(const CommonDisplayItem& item) const
 {
     if (is_plugin != item.is_plugin)
@@ -45,15 +102,19 @@ bool CommonDisplayItem::operator==(const CommonDisplayItem& item) const
 CTaskbarItemOrderHelper::CTaskbarItemOrderHelper(bool displayed_only)
     : m_displayed_only(displayed_only)
 {
-    for (const auto& item : AllDisplayItems)
+}
+
+void CTaskbarItemOrderHelper::Init()
+{
+    for (const auto& item : theApp.m_plugins.AllDisplayItemsWithPlugins())
     {
         m_all_item_in_default_order.push_back(item);
     }
 }
 
-std::vector<DisplayItem> CTaskbarItemOrderHelper::GetAllDisplayItemsWithOrder() const
+std::vector<CommonDisplayItem> CTaskbarItemOrderHelper::GetAllDisplayItemsWithOrder() const
 {
-    std::vector<DisplayItem> items;
+    std::vector<CommonDisplayItem> items;
     for (auto i : m_item_order)
     {
         if (i >= 0 && i < static_cast<int>(m_all_item_in_default_order.size()))
@@ -110,47 +171,64 @@ vector<int>& CTaskbarItemOrderHelper::GetItemOrder()
     return m_item_order;
 }
 
-CString CTaskbarItemOrderHelper::GetItemDisplayName(DisplayItem item)
+CString CTaskbarItemOrderHelper::GetItemDisplayName(CommonDisplayItem item)
 {
-    switch (item)
+    if (item.is_plugin)
     {
-    case TDI_UP:
-        return CCommon::LoadText(IDS_UPLOAD);
-    case TDI_DOWN:
-        return CCommon::LoadText(IDS_DOWNLOAD);
-    case TDI_CPU:
-        return CCommon::LoadText(IDS_CPU_USAGE);
-    case TDI_MEMORY:
-        return CCommon::LoadText(IDS_MEMORY_USAGE);
-    case TDI_GPU_USAGE:
-        return CCommon::LoadText(IDS_GPU_USAGE);
-    case TDI_CPU_TEMP:
-        return CCommon::LoadText(IDS_CPU_TEMPERATURE);
-    case TDI_GPU_TEMP:
-        return CCommon::LoadText(IDS_GPU_TEMPERATURE);
-    case TDI_HDD_TEMP:
-        return CCommon::LoadText(IDS_HDD_TEMPERATURE);
-    case TDI_MAIN_BOARD_TEMP:
-        return CCommon::LoadText(IDS_MAINBOARD_TEMPERATURE);
-    case TDI_HDD_USAGE:
-        return CCommon::LoadText(IDS_HDD_USAGE);
-    default:
-        break;
+        if (item.plugin_item != nullptr)
+            return item.plugin_item->GetItemName();
+        else
+            return CString();
+    }
+    else
+    {
+        switch (item.item_type)
+        {
+        case TDI_UP:
+            return CCommon::LoadText(IDS_UPLOAD);
+        case TDI_DOWN:
+            return CCommon::LoadText(IDS_DOWNLOAD);
+        case TDI_TOTAL_SPEED:
+            return CCommon::LoadText(IDS_TOTAL_NET_SPEED);
+        case TDI_CPU:
+            return CCommon::LoadText(IDS_CPU_USAGE);
+        case TDI_MEMORY:
+            return CCommon::LoadText(IDS_MEMORY_USAGE);
+        case TDI_GPU_USAGE:
+            return CCommon::LoadText(IDS_GPU_USAGE);
+        case TDI_CPU_TEMP:
+            return CCommon::LoadText(IDS_CPU_TEMPERATURE);
+        case TDI_GPU_TEMP:
+            return CCommon::LoadText(IDS_GPU_TEMPERATURE);
+        case TDI_HDD_TEMP:
+            return CCommon::LoadText(IDS_HDD_TEMPERATURE);
+        case TDI_MAIN_BOARD_TEMP:
+            return CCommon::LoadText(IDS_MAINBOARD_TEMPERATURE);
+        case TDI_HDD_USAGE:
+            return CCommon::LoadText(IDS_HDD_USAGE);
+        case TDI_CPU_FREQ:
+            return CCommon::LoadText(IDS_CPU_FREQ);
+        default:
+            break;
+        }
     }
     return CString();
 }
 
-bool CTaskbarItemOrderHelper::IsItemDisplayed(DisplayItem item)
+bool CTaskbarItemOrderHelper::IsItemDisplayed(CommonDisplayItem item)
 {
     bool displayed = true;
-    if (item == TDI_CPU_TEMP && !theApp.m_general_data.IsHardwareEnable(HI_CPU))
-        displayed = false;
-    if ((item == TDI_GPU_TEMP || item == TDI_GPU_USAGE) && !theApp.m_general_data.IsHardwareEnable(HI_GPU))
-        displayed = false;
-    if ((item == TDI_HDD_TEMP || item == TDI_HDD_USAGE) && !theApp.m_general_data.IsHardwareEnable(HI_HDD))
-        displayed = false;
-    if (item == TDI_MAIN_BOARD_TEMP && !theApp.m_general_data.IsHardwareEnable(HI_MBD))
-        displayed = false;
+    if (!item.is_plugin)
+    {
+        if ((item == TDI_CPU_TEMP || item == TDI_CPU_FREQ) && !theApp.m_general_data.IsHardwareEnable(HI_CPU))
+            displayed = false;
+        if ((item == TDI_GPU_TEMP || item == TDI_GPU_USAGE) && !theApp.m_general_data.IsHardwareEnable(HI_GPU))
+            displayed = false;
+        if ((item == TDI_HDD_TEMP || item == TDI_HDD_USAGE) && !theApp.m_general_data.IsHardwareEnable(HI_HDD))
+            displayed = false;
+        if (item == TDI_MAIN_BOARD_TEMP && !theApp.m_general_data.IsHardwareEnable(HI_MBD))
+            displayed = false;
+    }
 
     return displayed;
 }
@@ -158,7 +236,7 @@ bool CTaskbarItemOrderHelper::IsItemDisplayed(DisplayItem item)
 void CTaskbarItemOrderHelper::NormalizeItemOrder()
 {
     //检查是否有超出范围的序号
-    int item_num = static_cast<int>(AllDisplayItems.size());
+    int item_num = static_cast<int>(theApp.m_plugins.AllDisplayItemsWithPlugins().size());
     for (auto iter = m_item_order.begin(); iter != m_item_order.end();)
     {
         if (*iter < 0 || *iter >= item_num)
@@ -173,7 +251,7 @@ void CTaskbarItemOrderHelper::NormalizeItemOrder()
         {
             if (*iter >= 0 && *iter < static_cast<int>(m_all_item_in_default_order.size()))
             {
-                DisplayItem item = m_all_item_in_default_order[*iter];
+                CommonDisplayItem item = m_all_item_in_default_order[*iter];
                 if (!IsItemDisplayed(item))
                 {
                     iter = m_item_order.erase(iter);

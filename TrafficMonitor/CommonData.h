@@ -3,24 +3,32 @@
 #include "stdafx.h"
 #include "TaskbarItemOrderHelper.h"
 
-//储存某一天的历史流量
-struct HistoryTraffic
+struct Date
 {
     int year{};
     int month{};
     int day{};
-    //unsigned int kBytes;  //当天使用的流量（以KB为单位）
+
+    int week() const;       //该日期是一年的第几周
+
+    //比较两个HistoryTraffic对象的日期，如果a的时间大于b，则返回true
+    static bool DateGreater(const Date& a, const Date& b);
+
+    //判断两个HistoryTraffic对象的日期是否相等
+    static bool DateEqual(const Date& a, const Date& b);
+
+};
+
+//储存某一天的历史流量
+struct HistoryTraffic : public Date
+{
+    //当天使用的流量（以KB为单位）
     unsigned __int64 up_kBytes{};
     unsigned __int64 down_kBytes{};
     bool mixed{ true };     //如果不区分上传和下载流量，则为true
 
     unsigned __int64 kBytes() const;
 
-    //比较两个HistoryTraffic对象的日期，如果a的时间大于b，则返回true
-    static bool DateGreater(const HistoryTraffic& a, const HistoryTraffic& b);
-
-    //判断两个HistoryTraffic对象的日期是否相等
-    static bool DateEqual(const HistoryTraffic& a, const HistoryTraffic& b);
 };
 
 //历史流量统计中用于指示不同范围内的流量的颜色
@@ -53,15 +61,18 @@ enum HardwareItem
 struct DispStrings      //显示的文本
 {
 private:
-    std::map<DisplayItem, wstring> map_str;
+    std::map<CommonDisplayItem, wstring> map_str;
 
 public:
     //获取一个显示的文本
-    wstring& Get(DisplayItem item);
+    wstring& Get(CommonDisplayItem item);
 
-    const std::map<DisplayItem, wstring>& GetAllItems() const;
+    const std::map<CommonDisplayItem, wstring>& GetAllItems() const;
 
     void operator=(const DispStrings& disp_str);     //重载赋值运算符
+
+    //载入一个插件项目的显示文本
+    void Load(const std::wstring& plugin_id, const std::wstring& disp_str);
 
     //是否无效
     bool IsInvalid() const;
@@ -144,6 +155,7 @@ struct FontInfo
 enum class HistoryTrafficViewType
 {
     HV_DAY,         //日视图
+    HV_WEEK,        //周视图
     HV_MONTH,          //月视图
     HV_QUARTER,     //季视图
     HV_YEAR            //年视图
@@ -156,6 +168,9 @@ public:
     void SetStrContained(const std::wstring& str, bool contained);
     void FromString(const std::wstring& str);
     std::wstring ToString() const;
+    void FromVector(const std::vector<std::wstring>& vec);
+    std::vector<std::wstring> ToVector() const;
+    std::set<std::wstring>& data();
 private:
     std::set<std::wstring> string_set;
 };
@@ -186,6 +201,8 @@ struct MainConfigData
     HistoryTrafficViewType m_view_type{};
     bool m_sunday_first{ true };            //是否将周日作为一周的第一天
     StringSet plugin_disabled;      //已禁用的插件
+
+    int taskbar_left_space_win11{};         //Windows11下，任务栏窗口显示在左侧时的边距
 };
 
 //内存显示方式
@@ -219,7 +236,7 @@ struct PublicSettingData
 //选项设置中“主窗口设置”的数据
 struct MainWndSettingData : public PublicSettingData
 {
-    std::map<DisplayItem, COLORREF> text_colors{};    //方字的颜色
+    std::map<CommonDisplayItem, COLORREF> text_colors{};    //方字的颜色
     bool swap_up_down{ false };     //交换上传和下载显示的位置
     bool hide_main_wnd_when_fullscreen;     //有程序全屏运行时隐藏悬浮窗
     bool m_always_on_top{ false };      //窗口置顶
@@ -235,6 +252,11 @@ struct TaskbarItemColor //任务栏窗口每一项的颜色
 {
     COLORREF label{};   //标签颜色
     COLORREF value{};   //数值颜色
+
+    bool operator==(const TaskbarItemColor& item) const
+    {
+        return label == item.label && value == item.value;
+    }
 };
 
 //选项设置中“任务栏窗口设置”的数据
@@ -243,7 +265,7 @@ struct TaskBarSettingData : public PublicSettingData
     COLORREF  back_color{ RGB(0, 0, 0) };   //背景颜色
     COLORREF transparent_color{ RGB(0, 0, 0) };     //透明色
     COLORREF status_bar_color{ RGB(0, 0, 0) };      // CPU/内存 状态条颜色
-    std::map<DisplayItem, TaskbarItemColor> text_colors{};    //文字的颜色
+    std::map<CommonDisplayItem, TaskbarItemColor> text_colors{};    //文字的颜色
     int dft_back_color = 0;                         //默认背景颜色
     int dft_transparent_color = 0;                  //默认透明色
     int dft_status_bar_color = 0x005A5A5A;          //默认CPU/内存 状态条颜色
@@ -253,6 +275,7 @@ struct TaskBarSettingData : public PublicSettingData
     int dark_default_style{ 0 };                    //深色主题时使用的预设方案
     int light_default_style{ -1 };                  //浅色主题时使用的预设方案
     bool auto_set_background_color{ false };        //根据任务栏颜色自动设置背景色
+    bool auto_save_taskbar_color_settings_to_preset{};    //当启用“自动适应Windows10深色/浅色主题”时，是否在颜色设置有更改时自动将当前颜色设置保存到对应的预设
 
     CTaskbarItemOrderHelper item_order;
     unsigned int m_tbar_display_item{ TDI_UP | TDI_DOWN };      //任务栏窗口显示的项目
@@ -266,6 +289,14 @@ struct TaskBarSettingData : public PublicSettingData
     bool tbar_wnd_snap{ false };     	//如果为true，则在Win11中任务栏窗口贴靠中间任务栏，否则靠近边缘
     bool cm_graph_type{ false };        //如果为false，默认原样式，柱状图显示占用率，如为true，滚动显示占用率
     bool show_graph_dashed_box{ true }; //显示占用图虚线框
+    int item_space{};                   //任务栏项目间距
+    void ValidItemSpace();
+
+    bool show_netspeed_figure{ false };     //是否显示网速占用图
+    int netspeed_figure_max_value;          //网速占用图的最大值
+    int netspeed_figure_max_value_unit{};   //网速占用图最大值的单位（0: KB, 1: MB）
+    unsigned __int64 GetNetspeedFigureMaxValueInBytes() const;  //获取网速占用图的最大值（以字节为单位）
+
 };
 
 //选项设置中“常规设置”的数据
@@ -318,6 +349,8 @@ struct GeneralSettingData
         else
             hardware_monitor_item &= ~item_type;
     }
+
+    StringSet connections_hide;     //用于保存哪些网络要从“选择网络连接”子菜单项中隐藏
 };
 
 //定义监控时间间隔有效的最大值和最小值
@@ -326,9 +359,10 @@ struct GeneralSettingData
 
 enum class Alignment
 {
-    LEFT,
-    RIGHT,
-    CENTER
+    LEFT,       //左对齐
+    RIGHT,      //右对齐
+    CENTER,     //居中
+    SIDE        //两端对齐
 };
 
 //通过构造函数传递一个bool变量的引用，在构造时将其置为true，析构时置为false

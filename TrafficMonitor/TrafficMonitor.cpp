@@ -10,6 +10,8 @@
 #include "Test.h"
 #include "WIC.h"
 #include "auto_start_helper.h"
+#include "AppAlreadyRuningDlg.h"
+#include "WindowsSettingHelper.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -65,9 +67,12 @@ void CTrafficMonitorApp::LoadConfig()
     m_general_data.hard_disk_name = ini.GetString(L"general", L"hard_disk_name", L"");
     m_general_data.cpu_core_name = ini.GetString(L"general", L"cpu_core_name", L"Core Average");
     m_general_data.hardware_monitor_item = ini.GetInt(L"general", L"hardware_monitor_item", 0);
+    std::vector<std::wstring> connections_hide;
+    ini.GetStringList(L"general", L"connections_hide", connections_hide, std::vector<std::wstring>{});
+    m_general_data.connections_hide.FromVector(connections_hide);
 
     //Windows10颜色模式设置
-    bool is_windows10_light_theme = m_win_version.IsWindows10LightTheme();
+    bool is_windows10_light_theme = CWindowsSettingHelper::IsWindows10LightTheme();
     if (is_windows10_light_theme)
         CCommon::SetColorMode(ColorMode::Light);
     else
@@ -110,9 +115,12 @@ void CTrafficMonitorApp::LoadConfig()
     //m_main_wnd_data.font.name = ini.GetString(_T("config"), _T("font_name"), CCommon::LoadText(IDS_MICROSOFT_YAHEI)).c_str();
     //m_main_wnd_data.font.size = ini.GetInt(_T("config"), _T("font_size"), 10);
 
+    //载入显示文本设置
     m_main_wnd_data.disp_str.Get(TDI_UP) = ini.GetString(_T("config"), L"up_string", CCommon::LoadText(IDS_UPLOAD_DISP, _T(": $")));
     m_main_wnd_data.disp_str.Get(TDI_DOWN) = ini.GetString(L"config", L"down_string", CCommon::LoadText(IDS_DOWNLOAD_DISP, _T(": $")));
+    m_main_wnd_data.disp_str.Get(TDI_TOTAL_SPEED) = ini.GetString(L"config", L"total_speed_string", _T("↑↓: $"));
     m_main_wnd_data.disp_str.Get(TDI_CPU) = ini.GetString(L"config", L"cpu_string", L"CPU: $");
+    m_main_wnd_data.disp_str.Get(TDI_CPU_FREQ) = ini.GetString(L"config", L"cpu_freq_string", CCommon::LoadText(IDS_CPU_FREQ, _T(": $")));
     m_main_wnd_data.disp_str.Get(TDI_MEMORY) = ini.GetString(L"config", L"memory_string", CCommon::LoadText(IDS_MEMORY_DISP, _T(": $")));
     m_main_wnd_data.disp_str.Get(TDI_GPU_USAGE) = ini.GetString(L"config", L"gpu_string", CCommon::LoadText(IDS_GPU_DISP, _T(": $")));
     m_main_wnd_data.disp_str.Get(TDI_CPU_TEMP) = ini.GetString(L"config", L"cpu_temp_string", L"CPU: $");
@@ -120,6 +128,9 @@ void CTrafficMonitorApp::LoadConfig()
     m_main_wnd_data.disp_str.Get(TDI_HDD_TEMP) = ini.GetString(L"config", L"hdd_temp_string", CCommon::LoadText(IDS_HDD_DISP, _T(": $")));
     m_main_wnd_data.disp_str.Get(TDI_MAIN_BOARD_TEMP) = ini.GetString(L"config", L"main_board_temp_string", CCommon::LoadText(IDS_MAINBOARD_DISP, _T(": $")));
     m_main_wnd_data.disp_str.Get(TDI_HDD_USAGE) = ini.GetString(L"config", L"hdd_string", CCommon::LoadText(IDS_HDD_DISP, _T(": $")));
+
+    //载入插件项目的显示文本设置
+    ini.LoadPluginDisplayStr(true);
 
     m_main_wnd_data.speed_short_mode = ini.GetBool(_T("config"), _T("speed_short_mode"), false);
     m_main_wnd_data.separate_value_unit_with_space = ini.GetBool(_T("config"), _T("separate_value_unit_with_space"), true);
@@ -206,6 +217,7 @@ void CTrafficMonitorApp::LoadConfig()
 
     m_taskbar_data.disp_str.Get(TDI_UP) = ini.GetString(L"task_bar", L"up_string", L"↑: $");
     m_taskbar_data.disp_str.Get(TDI_DOWN) = ini.GetString(L"task_bar", L"down_string", L"↓: $");
+    m_taskbar_data.disp_str.Get(TDI_TOTAL_SPEED) = ini.GetString(L"task_bar", L"total_speed_string", L"↑↓: $");
     m_taskbar_data.disp_str.Get(TDI_CPU) = ini.GetString(L"task_bar", L"cpu_string", L"CPU: $");
     m_taskbar_data.disp_str.Get(TDI_MEMORY) = ini.GetString(L"task_bar", L"memory_string", CCommon::LoadText(IDS_MEMORY_DISP, _T(": $")));
     m_taskbar_data.disp_str.Get(TDI_GPU_USAGE) = ini.GetString(L"task_bar", L"gpu_string", CCommon::LoadText(IDS_GPU_DISP, _T(": $")));
@@ -214,6 +226,8 @@ void CTrafficMonitorApp::LoadConfig()
     m_taskbar_data.disp_str.Get(TDI_HDD_TEMP) = ini.GetString(L"task_bar", L"hdd_temp_string", CCommon::LoadText(IDS_HDD_DISP, _T(": ")));
     m_taskbar_data.disp_str.Get(TDI_MAIN_BOARD_TEMP) = ini.GetString(L"task_bar", L"main_board_temp_string", CCommon::LoadText(IDS_MAINBOARD_DISP, _T(": ")));
     m_taskbar_data.disp_str.Get(TDI_HDD_USAGE) = ini.GetString(L"task_bar", L"hdd_string", CCommon::LoadText(IDS_HDD_DISP, _T(": ")));
+    m_taskbar_data.disp_str.Get(TDI_CPU_FREQ) = ini.GetString(L"task_bar", L"cpu_freq_string", CCommon::LoadText(IDS_CPU_FREQ, _T(": $")));
+    ini.LoadPluginDisplayStr(false);
 
     m_taskbar_data.tbar_wnd_on_left = ini.GetBool(_T("task_bar"), _T("task_bar_wnd_on_left"), false);
     m_taskbar_data.speed_short_mode = ini.GetBool(_T("task_bar"), _T("task_bar_speed_short_mode"), false);
@@ -231,8 +245,10 @@ void CTrafficMonitorApp::LoadConfig()
     m_taskbar_data.memory_display = static_cast<MemoryDisplay>(ini.GetInt(L"task_bar", L"memory_display", static_cast<int>(MemoryDisplay::USAGE_PERCENTAGE)));
     m_taskbar_data.double_click_action = static_cast<DoubleClickAction>(ini.GetInt(_T("task_bar"), _T("double_click_action"), 0));
     m_taskbar_data.double_click_exe = ini.GetString(L"task_bar", L"double_click_exe", (theApp.m_system_dir + L"\\Taskmgr.exe").c_str());
-    m_taskbar_data.cm_graph_type = ini.GetBool(_T("task_bar"), _T("cm_graph_type"), false);
-    m_taskbar_data.show_graph_dashed_box = ini.GetBool(L"task_bar", L"show_graph_dashed_box", true);
+    m_taskbar_data.cm_graph_type = ini.GetBool(_T("task_bar"), _T("cm_graph_type"), true);
+    m_taskbar_data.show_graph_dashed_box = ini.GetBool(L"task_bar", L"show_graph_dashed_box", false);
+    m_taskbar_data.item_space = ini.GetInt(L"task_bar", L"item_space", 4);
+    m_taskbar_data.ValidItemSpace();
 
     if (m_win_version.IsWindows10OrLater())     //只有Win10才支持自动适应系统深色/浅色主题
         m_taskbar_data.auto_adapt_light_theme = ini.GetBool(L"task_bar", L"auto_adapt_light_theme", false);
@@ -246,8 +262,14 @@ void CTrafficMonitorApp::LoadConfig()
     else
         m_taskbar_data.auto_set_background_color = false;
 
+    m_taskbar_data.item_order.Init();
     m_taskbar_data.item_order.FromString(ini.GetString(L"task_bar", L"item_order", L""));
     m_taskbar_data.plugin_display_item.FromString(ini.GetString(L"task_bar", L"plugin_display_item", L""));
+    m_taskbar_data.auto_save_taskbar_color_settings_to_preset = ini.GetBool(L"task_bar", L"auto_save_taskbar_color_settings_to_preset", true);
+
+    m_taskbar_data.show_netspeed_figure = ini.GetBool(L"task_bar", L"show_netspeed_figure", false);
+    m_taskbar_data.netspeed_figure_max_value = ini.GetInt(L"task_bar", L"netspeed_figure_max_value", 512);
+    m_taskbar_data.netspeed_figure_max_value_unit = ini.GetInt(L"task_bar", L"netspeed_figure_max_value_unit", 0);
 
     //其他设置
     //m_cfg_data.m_show_internet_ip = ini.GetBool(L"connection_details", L"show_internet_ip", false);
@@ -261,11 +283,11 @@ void CTrafficMonitorApp::LoadConfig()
     m_debug_log = ini.GetBool(_T("other"), _T("debug_log"), false);
     //由于Win7系统中设置任务栏窗口透明色会导致任务栏窗口不可见，因此默认在Win7中禁用透明色的设定
     m_taksbar_transparent_color_enable = ini.GetBool(L"other", L"taksbar_transparent_color_enable", !m_win_version.IsWindows7());
-    m_last_light_mode = ini.GetBool(L"other", L"last_light_mode", m_win_version.IsWindows10LightTheme());
+    m_last_light_mode = ini.GetBool(L"other", L"last_light_mode", CWindowsSettingHelper::IsWindows10LightTheme());
     m_show_mouse_panetrate_tip = ini.GetBool(L"other", L"show_mouse_panetrate_tip", true);
     m_show_dot_net_notinstalled_tip = ini.GetBool(L"other", L"show_dot_net_notinstalled_tip", true);
 
-    m_cfg_data.plugin_disabled.FromString(ini.GetString(L"config", L"plugin_disabled", L""));
+    m_cfg_data.taskbar_left_space_win11 = ini.GetInt(L"task_bar", L"taskbar_left_space_win11", 160);
 }
 
 void CTrafficMonitorApp::SaveConfig()
@@ -283,6 +305,7 @@ void CTrafficMonitorApp::SaveConfig()
     ini.WriteString(L"general", L"hard_disk_name", m_general_data.hard_disk_name);
     ini.WriteString(L"general", L"cpu_core_name", m_general_data.cpu_core_name);
     ini.WriteInt(L"general", L"hardware_monitor_item", m_general_data.hardware_monitor_item);
+    ini.WriteStringList(L"general", L"connections_hide", m_general_data.connections_hide.ToVector());
 
     //主窗口设置
     ini.WriteInt(L"config", L"transparency", m_cfg_data.m_transparency);
@@ -311,14 +334,17 @@ void CTrafficMonitorApp::SaveConfig()
 
     ini.WriteString(_T("config"), _T("up_string"), m_main_wnd_data.disp_str.Get(TDI_UP));
     ini.WriteString(_T("config"), _T("down_string"), m_main_wnd_data.disp_str.Get(TDI_DOWN));
+    ini.WriteString(_T("config"), _T("total_speed_string"), m_main_wnd_data.disp_str.Get(TDI_TOTAL_SPEED));
     ini.WriteString(_T("config"), _T("cpu_string"), m_main_wnd_data.disp_str.Get(TDI_CPU));
     ini.WriteString(_T("config"), _T("memory_string"), m_main_wnd_data.disp_str.Get(TDI_MEMORY));
     ini.WriteString(_T("config"), _T("gpu_string"), m_main_wnd_data.disp_str.Get(TDI_GPU_USAGE));
     ini.WriteString(_T("config"), _T("cpu_temp_string"), m_main_wnd_data.disp_str.Get(TDI_CPU_TEMP));
+    ini.WriteString(_T("config"), _T("cpu_freq_string"), m_main_wnd_data.disp_str.Get(TDI_CPU_FREQ));
     ini.WriteString(_T("config"), _T("gpu_temp_string"), m_main_wnd_data.disp_str.Get(TDI_GPU_TEMP));
     ini.WriteString(_T("config"), _T("hdd_temp_string"), m_main_wnd_data.disp_str.Get(TDI_HDD_TEMP));
     ini.WriteString(_T("config"), _T("main_board_temp_string"), m_main_wnd_data.disp_str.Get(TDI_MAIN_BOARD_TEMP));
     ini.WriteString(_T("config"), _T("hdd_string"), m_main_wnd_data.disp_str.Get(TDI_HDD_USAGE));
+    ini.SavePluginDisplayStr(true);
 
     ini.WriteBool(L"config", L"speed_short_mode", m_main_wnd_data.speed_short_mode);
     ini.WriteBool(L"config", L"separate_value_unit_with_space", m_main_wnd_data.separate_value_unit_with_space);
@@ -360,14 +386,17 @@ void CTrafficMonitorApp::SaveConfig()
 
     ini.WriteString(_T("task_bar"), _T("up_string"), m_taskbar_data.disp_str.Get(TDI_UP));
     ini.WriteString(_T("task_bar"), _T("down_string"), m_taskbar_data.disp_str.Get(TDI_DOWN));
+    ini.WriteString(_T("task_bar"), _T("total_speed_string"), m_taskbar_data.disp_str.Get(TDI_TOTAL_SPEED));
     ini.WriteString(_T("task_bar"), _T("cpu_string"), m_taskbar_data.disp_str.Get(TDI_CPU));
     ini.WriteString(_T("task_bar"), _T("memory_string"), m_taskbar_data.disp_str.Get(TDI_MEMORY));
     ini.WriteString(_T("task_bar"), _T("gpu_string"), m_taskbar_data.disp_str.Get(TDI_GPU_USAGE));
     ini.WriteString(_T("task_bar"), _T("cpu_temp_string"), m_taskbar_data.disp_str.Get(TDI_CPU_TEMP));
+    ini.WriteString(_T("task_bar"), _T("cpu_freq_string"), m_taskbar_data.disp_str.Get(TDI_CPU_FREQ));
     ini.WriteString(_T("task_bar"), _T("gpu_temp_string"), m_taskbar_data.disp_str.Get(TDI_GPU_TEMP));
     ini.WriteString(_T("task_bar"), _T("hdd_temp_string"), m_taskbar_data.disp_str.Get(TDI_HDD_TEMP));
     ini.WriteString(_T("task_bar"), _T("main_board_temp_string"), m_taskbar_data.disp_str.Get(TDI_MAIN_BOARD_TEMP));
     ini.WriteString(_T("task_bar"), _T("hdd_string"), m_taskbar_data.disp_str.Get(TDI_HDD_USAGE));
+    ini.SavePluginDisplayStr(false);
 
     ini.WriteBool(L"task_bar", L"task_bar_wnd_on_left", m_taskbar_data.tbar_wnd_on_left);
     ini.WriteBool(L"task_bar", L"task_bar_wnd_snap", m_taskbar_data.tbar_wnd_snap);
@@ -387,6 +416,7 @@ void CTrafficMonitorApp::SaveConfig()
     ini.WriteString(L"task_bar", L"double_click_exe", m_taskbar_data.double_click_exe);
     ini.WriteBool(L"task_bar", L"cm_graph_type", m_taskbar_data.cm_graph_type);
     ini.WriteBool(L"task_bar", L"show_graph_dashed_box", m_taskbar_data.show_graph_dashed_box);
+    ini.WriteInt(L"task_bar", L"item_space", m_taskbar_data.item_space);
 
     ini.WriteBool(L"task_bar", L"auto_adapt_light_theme", m_taskbar_data.auto_adapt_light_theme);
     ini.WriteInt(L"task_bar", L"dark_default_style", m_taskbar_data.dark_default_style);
@@ -395,6 +425,11 @@ void CTrafficMonitorApp::SaveConfig()
 
     ini.WriteString(L"task_bar", L"item_order", m_taskbar_data.item_order.ToString());
     ini.WriteString(L"task_bar", L"plugin_display_item", m_taskbar_data.plugin_display_item.ToString());
+    ini.WriteBool(L"task_bar", L"auto_save_taskbar_color_settings_to_preset", m_taskbar_data.auto_save_taskbar_color_settings_to_preset);
+
+    ini.WriteBool(L"task_bar", L"show_netspeed_figure", m_taskbar_data.show_netspeed_figure);
+    ini.WriteInt(L"task_bar", L"netspeed_figure_max_value", m_taskbar_data.netspeed_figure_max_value);
+    ini.WriteInt(L"task_bar", L"netspeed_figure_max_value_unit", m_taskbar_data.netspeed_figure_max_value_unit);
 
     //其他设置
     //ini.WriteBool(L"connection_details", L"show_internet_ip", m_cfg_data.m_show_internet_ip);
@@ -413,6 +448,8 @@ void CTrafficMonitorApp::SaveConfig()
 
     ini.WriteString(L"config", L"plugin_disabled", m_cfg_data.plugin_disabled.ToString());
 
+    ini.WriteInt(L"task_bar", L"taskbar_left_space_win11", m_cfg_data.taskbar_left_space_win11);
+
     ini.WriteString(L"app", L"version", VERSION);
 
     //检查是否保存成功
@@ -428,6 +465,12 @@ void CTrafficMonitorApp::SaveConfig()
         m_cannot_save_config_warning = false;
         return;
     }
+}
+
+void CTrafficMonitorApp::LoadPluginDisabledSettings()
+{
+    CIniHelper ini{ m_config_path };
+    m_cfg_data.plugin_disabled.FromString(ini.GetString(L"config", L"plugin_disabled", L""));
 }
 
 void CTrafficMonitorApp::LoadGlobalConfig()
@@ -594,19 +637,21 @@ UINT CTrafficMonitorApp::InitOpenHardwareMonitorLibThreadFunc(LPVOID lpParam)
     return 0;
 }
 
-void CTrafficMonitorApp::SetAutoRun(bool auto_run)
+bool  CTrafficMonitorApp::SetAutoRun(bool auto_run)
 {
     //不含温度监控的版本使用添加注册表项的方式实现开机自启动
 #ifdef WITHOUT_TEMPERATURE
-    SetAutoRunByRegistry(auto_run);
+    return SetAutoRunByRegistry(auto_run);
 #else
     //包含温度监控的版本使用任务计划的方式实现开机自启动
-    SetAutoRunByTaskScheduler(auto_run);
+    return SetAutoRunByTaskScheduler(auto_run);
 #endif
 }
 
-bool CTrafficMonitorApp::GetAutoRun()
+bool CTrafficMonitorApp::GetAutoRun(wstring* auto_run_path)
 {
+    if (auto_run_path != nullptr)
+        auto_run_path->clear();
     //不含温度监控的版本使用添加注册表项的方式实现开机自启动
 #ifdef WITHOUT_TEMPERATURE
     CRegKey key;
@@ -619,26 +664,36 @@ bool CTrafficMonitorApp::GetAutoRun()
     ULONG size{ 256 };
     if (key.QueryStringValue(APP_NAME, buff, &size) == ERROR_SUCCESS)       //如果找到了“TrafficMonitor”键
     {
+        if (auto_run_path != nullptr)
+        {
+            //保存路径
+            *auto_run_path = buff;
+            //去掉前后的引号
+            if (auto_run_path->front() == L'\"')
+                *auto_run_path = auto_run_path->substr(1);
+            if (auto_run_path->back() = L'\"')
+                auto_run_path->pop_back();
+        }
         return (m_module_path_reg == buff); //如果“TrafficMonitor”的值是当前程序的路径，就返回true，否则返回false
     }
     else
     {
         return false;       //没有找到“TrafficMonitor”键，返回false
-}
+    }
 #else
     //包含温度监控的版本使用任务计划的方式实现开机自启动
-    return is_auto_start_task_active_for_this_user();
+    return is_auto_start_task_active_for_this_user(auto_run_path);
 #endif
 }
 
-void CTrafficMonitorApp::SetAutoRunByRegistry(bool auto_run)
+bool CTrafficMonitorApp::SetAutoRunByRegistry(bool auto_run)
 {
     CRegKey key;
     //打开注册表项
     if (key.Open(HKEY_CURRENT_USER, _T("Software\\Microsoft\\Windows\\CurrentVersion\\Run")) != ERROR_SUCCESS)
     {
         AfxMessageBox(CCommon::LoadText(IDS_AUTORUN_FAILED_NO_KEY), MB_OK | MB_ICONWARNING);
-        return;
+        return false;
     }
     if (auto_run)       //写入注册表项
     {
@@ -648,7 +703,7 @@ void CTrafficMonitorApp::SetAutoRunByRegistry(bool auto_run)
         if (key.SetStringValue(APP_NAME, m_module_path_reg.c_str()) != ERROR_SUCCESS)
         {
             AfxMessageBox(CCommon::LoadText(IDS_AUTORUN_FAILED_NO_ACCESS), MB_OK | MB_ICONWARNING);
-            return;
+            return false;
         }
     }
     else        //删除注册表项
@@ -657,28 +712,27 @@ void CTrafficMonitorApp::SetAutoRunByRegistry(bool auto_run)
         wchar_t buff[256];
         ULONG size{ 256 };
         if (key.QueryStringValue(APP_NAME, buff, &size) != ERROR_SUCCESS)
-            return;
+            return false;
         if (key.DeleteValue(APP_NAME) != ERROR_SUCCESS)
         {
             AfxMessageBox(CCommon::LoadText(IDS_AUTORUN_DELETE_FAILED), MB_OK | MB_ICONWARNING);
-            return;
+            return false;
         }
     }
+    return true;
 }
 
-void CTrafficMonitorApp::SetAutoRunByTaskScheduler(bool auto_run)
+bool CTrafficMonitorApp::SetAutoRunByTaskScheduler(bool auto_run)
 {
+    bool succeed = delete_auto_start_task_for_this_user();     //先删除开机自启动
     if (auto_run)
     {
         //通过计划任务设置开机自启动项时删除注册表中的自启动项
         SetAutoRunByRegistry(false);
 
-        create_auto_start_task_for_this_user(true);
+        succeed = create_auto_start_task_for_this_user(true);
     }
-    else
-    {
-        delete_auto_start_task_for_this_user();
-    }
+    return succeed;
 }
 
 CString CTrafficMonitorApp::GetSystemInfoString()
@@ -732,8 +786,8 @@ void CTrafficMonitorApp::InitMenuResourse()
         CMenuIcon::AddIconToMenuItem(m_main_menu.GetSafeHmenu(), ID_MOUSE_PENETRATE, FALSE, GetMenuIcon(IDI_MOUSE));
     if (!m_win_version.IsWindows11OrLater())
         CMenuIcon::AddIconToMenuItem(m_main_menu.GetSafeHmenu(), ID_LOCK_WINDOW_POS, FALSE, GetMenuIcon(IDI_LOCK));
-    if (!m_win_version.IsWindows11OrLater())
-        CMenuIcon::AddIconToMenuItem(m_main_menu.GetSafeHmenu(), ID_SHOW_NOTIFY_ICON, FALSE, GetMenuIcon(IDI_NOTIFY));
+    //if (!m_win_version.IsWindows11OrLater())
+    //    CMenuIcon::AddIconToMenuItem(m_main_menu.GetSafeHmenu(), ID_SHOW_NOTIFY_ICON, FALSE, GetMenuIcon(IDI_NOTIFY));
     if (!m_win_version.IsWindows11OrLater())
         CMenuIcon::AddIconToMenuItem(m_main_menu.GetSafeHmenu(), ID_SHOW_CPU_MEMORY, FALSE, GetMenuIcon(IDI_MORE));
     if (!m_win_version.IsWindows11OrLater())
@@ -754,9 +808,9 @@ void CTrafficMonitorApp::InitMenuResourse()
     CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSubMenu(0)->GetSafeHmenu(), 0, TRUE, GetMenuIcon(IDI_CONNECTION));
     CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSafeHmenu(), ID_NETWORK_INFO, FALSE, GetMenuIcon(IDI_INFO));
     CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSafeHmenu(), ID_TRAFFIC_HISTORY, FALSE, GetMenuIcon(IDI_STATISTICS));
-    CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSubMenu(0)->GetSafeHmenu(), 5, TRUE, GetMenuIcon(IDI_ITEM));
-    if (!m_win_version.IsWindows11OrLater())
-        CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSafeHmenu(), ID_SHOW_NOTIFY_ICON, FALSE, GetMenuIcon(IDI_NOTIFY));
+    CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSafeHmenu(), ID_DISPLAY_SETTINGS, FALSE, GetMenuIcon(IDI_ITEM));
+    //if (!m_win_version.IsWindows11OrLater())
+    //    CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSafeHmenu(), ID_SHOW_NOTIFY_ICON, FALSE, GetMenuIcon(IDI_NOTIFY));
     if (!m_win_version.IsWindows11OrLater())
         CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSafeHmenu(), ID_SHOW_MAIN_WND, FALSE, GetMenuIcon(IDI_MAIN_WINDOW));
     CMenuIcon::AddIconToMenuItem(m_taskbar_menu.GetSafeHmenu(), ID_SHOW_TASK_BAR_WND, FALSE, GetMenuIcon(IDI_CLOSE));
@@ -791,7 +845,7 @@ void CTrafficMonitorApp::AutoSelectNotifyIcon()
 {
     if (m_win_version.GetMajorVersion() >= 10)
     {
-        bool light_mode = m_win_version.IsWindows10LightTheme();
+        bool light_mode = CWindowsSettingHelper::IsWindows10LightTheme();
         if (light_mode)     //浅色模式下，如果图标是白色，则改成黑色
         {
             if (m_cfg_data.m_notify_icon_selected == 0)
@@ -818,9 +872,11 @@ CTrafficMonitorApp theApp;
 
 BOOL CTrafficMonitorApp::InitInstance()
 {
-    //CSimpleXML xml(L"C:\\Temp\\xmldoc_test1.xml");
-    //wstring str;
-    //str = xml.GetNode(L"panorama", L"face1");
+    //替换掉对话框程序的默认类名
+    WNDCLASS wc;
+    ::GetClassInfo(AfxGetInstanceHandle(), _T("#32770"), &wc);       //MFC默认的所有对话框的类名为#32770
+    wc.lpszClassName = APP_CLASS_NAME;      //将对话框的类名修改为新类名
+    AfxRegisterClass(&wc);
 
     //设置配置文件的路径
     wchar_t path[MAX_PATH];
@@ -871,13 +927,33 @@ BOOL CTrafficMonitorApp::InitInstance()
 
     bool is_windows10_fall_creator = m_win_version.IsWindows10FallCreatorOrLater();
 
+    //载入插件
+    LoadPluginDisabledSettings();
+    m_plugins.LoadPlugins();
+
+    //向插件传递配置文件的路径
+    wstring plugin_dir;
+#ifdef _DEBUG
+    plugin_dir = m_module_dir;
+#else
+    plugin_dir = m_config_dir;
+#endif
+    plugin_dir += L"plugins\\";
+    m_plugins.EnumPlugin([&](ITMPlugin* plugin)
+        {
+            if (plugin->GetAPIVersion() >= 2)
+            {
+                CreateDirectory(plugin_dir.c_str(), NULL);       //如果plugins不存在，则创建它
+                plugin->OnExtenedInfo(ITMPlugin::EI_CONFIG_DIR, plugin_dir.c_str());
+            }
+        });
+
     //从ini文件载入设置
     LoadConfig();
 
     //初始化界面语言
     CCommon::SetThreadLanguage(m_general_data.language);
 
-#ifndef _DEBUG
     //wstring cmd_line{ m_lpCmdLine };
     //bool is_restart{ cmd_line.find(L"RestartByRestartManager") != wstring::npos };        //如果命令行参数中含有字符串“RestartByRestartManager”则说明程序是被Windows重新启动的
     ////bool when_start{ CCommon::WhenStart(m_no_multistart_warning_time) };
@@ -888,7 +964,13 @@ BOOL CTrafficMonitorApp::InitInstance()
     //}
 
     //检查是否已有实例正在运行
-    HANDLE hMutex = ::CreateMutex(NULL, TRUE, _T("TrafficMonitor-1419J3XLKL1w8OZc"));
+    LPCTSTR mutex_name{};
+#ifdef _DEBUG
+    mutex_name = _T("TrafficMonitor-e8Ahk24HP6JC8hDy");
+#else
+    mutex_name = _T("TrafficMonitor-1419J3XLKL1w8OZc");
+#endif
+    HANDLE hMutex = ::CreateMutex(NULL, TRUE, mutex_name);
     if (hMutex != NULL)
     {
         if (GetLastError() == ERROR_ALREADY_EXISTS)
@@ -899,12 +981,22 @@ BOOL CTrafficMonitorApp::InitInstance()
             //CCommon::WriteLog(buff, _T(".\\start.log"));
             if (!m_no_multistart_warning)
             {
-                AfxMessageBox(CCommon::LoadText(IDS_AN_INSTANCE_RUNNING));
+                //查找已存在TrafficMonitor进程的主窗口的句柄
+                HWND exist_handel = ::FindWindow(APP_CLASS_NAME, NULL);
+                if (exist_handel != NULL)
+                {
+                    //弹出“TrafficMonitor已在运行”对话框
+                    CAppAlreadyRuningDlg dlg(exist_handel);
+                    dlg.DoModal();
+                }
+                else
+                {
+                    AfxMessageBox(CCommon::LoadText(IDS_AN_INSTANCE_RUNNING));
+                }
             }
             return FALSE;
         }
     }
-#endif
 
     m_taskbar_default_style.LoadConfig();
 
@@ -939,7 +1031,7 @@ BOOL CTrafficMonitorApp::InitInstance()
     // 更改用于存储设置的注册表项
     // TODO: 应适当修改该字符串，
     // 例如修改为公司或组织名
-    SetRegistryKey(_T("应用程序向导生成的本地应用程序"));
+    //SetRegistryKey(_T("应用程序向导生成的本地应用程序"));        //暂不使用注册表保存数据
 
     //启动时检查更新
 #ifndef _DEBUG      //DEBUG下不在启动时检查更新
@@ -951,7 +1043,7 @@ BOOL CTrafficMonitorApp::InitInstance()
 
 #ifndef WITHOUT_TEMPERATURE
     //检测是否安装.net framework 4.5
-    if (!CWinVersionHelper::IsDotNetFramework4Point5Installed())
+    if (!CWindowsSettingHelper::IsDotNetFramework4Point5Installed())
     {
         if (theApp.m_show_dot_net_notinstalled_tip)
         {
@@ -974,12 +1066,12 @@ BOOL CTrafficMonitorApp::InitInstance()
     }
 #endif
 
-    m_plugins.LoadPlugins();
-
     //执行测试代码
 #ifdef _DEBUG
     CTest::Test();
 #endif
+
+    SendSettingsToPlugin();
 
     CTrafficMonitorDlg dlg;
     m_pMainWnd = &dlg;
@@ -1037,55 +1129,114 @@ void CTrafficMonitorApp::UpdateOpenHardwareMonitorEnableState()
 #endif
 }
 
-void CTrafficMonitorApp::UpdateTaskbarWndMenu()
-{
-    //获取“显示设置”子菜单
-    CMenu* pMenu = m_taskbar_menu.GetSubMenu(0)->GetSubMenu(5);
-    ASSERT(pMenu != nullptr);
-    if (pMenu != nullptr)
-    {
-        //将ID_SHOW_MEMORY_USAGE后面的所有菜单项删除
-        if (pMenu->GetMenuItemCount() > 4)
-        {
-            int start_pos = CCommon::GetMenuItemPosition(pMenu, ID_SHOW_MEMORY_USAGE) + 1;
-            while (pMenu->GetMenuItemCount() > start_pos)
-            {
-                pMenu->DeleteMenu(start_pos, MF_BYPOSITION);
-            }
-        }
-
-        //添加温度相关菜单项
-#ifndef WITHOUT_TEMPERATURE
-        if (m_general_data.IsHardwareEnable(HI_GPU))
-            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_GPU, CCommon::LoadText(IDS_GPU_USAGE));
-        if (m_general_data.IsHardwareEnable(HI_CPU))
-            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_CPU_TEMPERATURE, CCommon::LoadText(IDS_CPU_TEMPERATURE));
-        if (m_general_data.IsHardwareEnable(HI_GPU))
-            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_GPU_TEMPERATURE, CCommon::LoadText(IDS_GPU_TEMPERATURE));
-        if (m_general_data.IsHardwareEnable(HI_HDD))
-            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_HDD_TEMPERATURE, CCommon::LoadText(IDS_HDD_TEMPERATURE));
-        if (m_general_data.IsHardwareEnable(HI_MBD))
-            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_MAIN_BOARD_TEMPERATURE, CCommon::LoadText(IDS_MAINBOARD_TEMPERATURE));
-        if (m_general_data.IsHardwareEnable(HI_HDD))
-            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_HDD, CCommon::LoadText(IDS_HDD_USAGE));
-#endif
-
-        //添加插件菜单项
-        if (!m_plugins.GetPluginItems().empty())
-            pMenu->AppendMenu(MF_SEPARATOR);
-        int plugin_index = 0;
-        for (const auto& plugin_item : m_plugins.GetPluginItems())
-        {
-            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_PLUGIN_ITEM_START + plugin_index, plugin_item->GetItemName());
-            plugin_index++;
-        }
-    }
-}
+//void CTrafficMonitorApp::UpdateTaskbarWndMenu()
+//{
+//    //获取“显示设置”子菜单
+//    CMenu* pMenu = m_taskbar_menu.GetSubMenu(0)->GetSubMenu(5);
+//    ASSERT(pMenu != nullptr);
+//    if (pMenu != nullptr)
+//    {
+//        //将ID_SHOW_MEMORY_USAGE后面的所有菜单项删除
+//        if (pMenu->GetMenuItemCount() > 4)
+//        {
+//            int start_pos = CCommon::GetMenuItemPosition(pMenu, ID_SHOW_MEMORY_USAGE) + 1;
+//            while (pMenu->GetMenuItemCount() > start_pos)
+//            {
+//                pMenu->DeleteMenu(start_pos, MF_BYPOSITION);
+//            }
+//        }
+//
+//        //添加温度相关菜单项
+//#ifndef WITHOUT_TEMPERATURE
+//        if (m_general_data.IsHardwareEnable(HI_GPU))
+//            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_GPU, CCommon::LoadText(IDS_GPU_USAGE));
+//        if (m_general_data.IsHardwareEnable(HI_CPU))
+//            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_CPU_TEMPERATURE, CCommon::LoadText(IDS_CPU_TEMPERATURE));
+//        if (m_general_data.IsHardwareEnable(HI_GPU))
+//            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_GPU_TEMPERATURE, CCommon::LoadText(IDS_GPU_TEMPERATURE));
+//        if (m_general_data.IsHardwareEnable(HI_HDD))
+//            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_HDD_TEMPERATURE, CCommon::LoadText(IDS_HDD_TEMPERATURE));
+//        if (m_general_data.IsHardwareEnable(HI_MBD))
+//            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_MAIN_BOARD_TEMPERATURE, CCommon::LoadText(IDS_MAINBOARD_TEMPERATURE));
+//        if (m_general_data.IsHardwareEnable(HI_HDD))
+//            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_HDD, CCommon::LoadText(IDS_HDD_USAGE));
+//#endif
+//
+//        pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_TOTAL_SPEED, CCommon::LoadText(IDS_TOTAL_NET_SPEED));
+//
+//        //添加插件菜单项
+//        if (!m_plugins.GetPluginItems().empty())
+//            pMenu->AppendMenu(MF_SEPARATOR);
+//        int plugin_index = 0;
+//        for (const auto& plugin_item : m_plugins.GetPluginItems())
+//        {
+//            pMenu->AppendMenu(MF_STRING | MF_ENABLED, ID_SHOW_PLUGIN_ITEM_START + plugin_index, plugin_item->GetItemName());
+//            plugin_index++;
+//        }
+//    }
+//}
 
 bool CTrafficMonitorApp::IsForceShowNotifyIcon()
 {
-    return ((!m_cfg_data.m_show_task_bar_wnd || m_win_version.IsWindows11OrLater())
+    return ((!m_cfg_data.m_show_task_bar_wnd /*|| m_win_version.IsWindows11OrLater()*/)
         && (m_cfg_data.m_hide_main_window || m_main_wnd_data.m_mouse_penetrate));    //如果没有显示任务栏窗口，且隐藏了主窗口或设置了鼠标穿透，则禁用“显示通知区图标”菜单项
+}
+
+std::wstring CTrafficMonitorApp::GetPlauginTooltipInfo() const
+{
+    std::wstring tip_info;
+    for (const auto& item : m_plugins.GetPlugins())
+    {
+        if (item.plugin != nullptr && item.plugin->GetAPIVersion() >= 2)
+        {
+            std::wstring plugin_tooltip = item.plugin->GetTooltipInfo();
+            if (!plugin_tooltip.empty())
+            {
+                tip_info += L"\r\n";
+                tip_info += plugin_tooltip.c_str();
+            }
+        }
+    }
+    return tip_info;
+}
+
+bool CTrafficMonitorApp::IsTaksbarItemDisplayed(CommonDisplayItem item) const
+{
+    if (item.is_plugin)
+    {
+        if (item.plugin_item != nullptr)
+            return m_taskbar_data.plugin_display_item.Contains(item.plugin_item->GetItemId());
+    }
+    else
+    {
+        return m_taskbar_data.m_tbar_display_item & item.item_type;
+    }
+    return false;
+}
+
+void CTrafficMonitorApp::SendSettingsToPlugin()
+{
+    for (const auto& plugin_info : m_plugins.GetPlugins())
+    {
+        if (plugin_info.plugin != nullptr && plugin_info.plugin->GetAPIVersion() >= 2)
+        {
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_NAIN_WND_NET_SPEED_SHORT_MODE, std::to_wstring(m_main_wnd_data.speed_short_mode).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_MAIN_WND_SPERATE_WITH_SPACE, std::to_wstring(m_main_wnd_data.separate_value_unit_with_space).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_MAIN_WND_UNIT_BYTE, std::to_wstring(m_main_wnd_data.unit_byte).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_MAIN_WND_UNIT_SELECT, std::to_wstring(static_cast<int>(m_main_wnd_data.speed_unit)).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_MAIN_WND_NOT_SHOW_UNIT, std::to_wstring(m_main_wnd_data.hide_unit).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_MAIN_WND_NOT_SHOW_PERCENT, std::to_wstring(m_main_wnd_data.hide_percent).c_str());
+
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_NET_SPEED_SHORT_MODE, std::to_wstring(m_taskbar_data.speed_short_mode).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_SPERATE_WITH_SPACE, std::to_wstring(m_taskbar_data.separate_value_unit_with_space).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_VALUE_RIGHT_ALIGN, std::to_wstring(m_taskbar_data.value_right_align).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_NET_SPEED_WIDTH, std::to_wstring(m_taskbar_data.digits_number).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_UNIT_BYTE, std::to_wstring(m_taskbar_data.unit_byte).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_UNIT_SELECT, std::to_wstring(static_cast<int>(m_taskbar_data.speed_unit)).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_NOT_SHOW_UNIT, std::to_wstring(m_taskbar_data.hide_unit).c_str());
+            plugin_info.plugin->OnExtenedInfo(ITMPlugin::EI_TASKBAR_WND_NOT_SHOW_PERCENT, std::to_wstring(m_taskbar_data.hide_percent).c_str());
+        }
+    }
 }
 
 void CTrafficMonitorApp::OnHelp()

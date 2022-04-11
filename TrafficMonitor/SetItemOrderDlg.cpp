@@ -12,9 +12,9 @@
 IMPLEMENT_DYNAMIC(CSetItemOrderDlg, CBaseDialog)
 
 CSetItemOrderDlg::CSetItemOrderDlg(CWnd* pParent /*=nullptr*/)
-	: CBaseDialog(IDD_SELECT_ORDER_DIALOG, pParent), m_item_order(true)
+    : CBaseDialog(IDD_SELECT_ORDER_DIALOG, pParent), m_item_order(true)
 {
-
+    m_item_order.Init();
 }
 
 CSetItemOrderDlg::~CSetItemOrderDlg()
@@ -63,6 +63,7 @@ BEGIN_MESSAGE_MAP(CSetItemOrderDlg, CBaseDialog)
     ON_BN_CLICKED(IDC_MOVE_DOWN_BUTTON, &CSetItemOrderDlg::OnBnClickedMoveDownButton)
     ON_BN_CLICKED(IDC_RESTORE_DEFAULT_BUTTON, &CSetItemOrderDlg::OnBnClickedRestoreDefaultButton)
     ON_LBN_SELCHANGE(IDC_LIST1, &CSetItemOrderDlg::OnLbnSelchangeList1)
+    ON_CLBN_CHKCHANGE(IDC_LIST1, &CSetItemOrderDlg::OnCheckChanged)
 END_MESSAGE_MAP()
 
 
@@ -86,23 +87,13 @@ BOOL CSetItemOrderDlg::OnInitDialog()
 
 void CSetItemOrderDlg::ShowItem()
 {
-    //向列表中添加内建项目
+    //向列表中添加项目
     m_list_ctrl.ResetContent();
-    auto item_list = m_item_order.GetAllDisplayItemsWithOrder();
-    m_item_coumt = static_cast<int>(item_list.size());
-    for (const auto& item : item_list)
+    m_all_displayed_item = m_item_order.GetAllDisplayItemsWithOrder();
+    for (const auto& item : m_all_displayed_item)
     {
         m_list_ctrl.AddString(CTaskbarItemOrderHelper::GetItemDisplayName(item));
-        if (m_display_item & item)
-            m_list_ctrl.SetCheck(m_list_ctrl.GetCount() - 1, TRUE);
-        else
-            m_list_ctrl.SetCheck(m_list_ctrl.GetCount() - 1, FALSE);
-    }
-    //向列表中添加插件项目
-    for (const auto& plugin_item : theApp.m_plugins.GetPluginItems())
-    {
-        m_list_ctrl.AddString(plugin_item->GetItemName());
-        if (m_plugin_item.Contains(plugin_item->GetItemId()))
+        if (GetItemChecked(item))
             m_list_ctrl.SetCheck(m_list_ctrl.GetCount() - 1, TRUE);
         else
             m_list_ctrl.SetCheck(m_list_ctrl.GetCount() - 1, FALSE);
@@ -111,8 +102,8 @@ void CSetItemOrderDlg::ShowItem()
 
 void CSetItemOrderDlg::EnableCtrl(int list_selected)
 {
-    EnableDlgCtrl(IDC_MOVE_UP_BUTTON, list_selected > 0 && list_selected < m_item_coumt);
-    EnableDlgCtrl(IDC_MOVE_DOWN_BUTTON, list_selected >= 0 && list_selected < m_item_coumt - 1);
+    EnableDlgCtrl(IDC_MOVE_UP_BUTTON, list_selected > 0 && list_selected < static_cast<int>(m_all_displayed_item.size()));
+    EnableDlgCtrl(IDC_MOVE_DOWN_BUTTON, list_selected >= 0 && list_selected < static_cast<int>(m_all_displayed_item.size()) - 1);
 }
 
 void CSetItemOrderDlg::EnableDlgCtrl(UINT id, bool enable)
@@ -120,6 +111,36 @@ void CSetItemOrderDlg::EnableDlgCtrl(UINT id, bool enable)
     CWnd* pCtrl = GetDlgItem(id);
     if (pCtrl != nullptr)
         pCtrl->EnableWindow(enable);
+}
+
+bool CSetItemOrderDlg::GetItemChecked(CommonDisplayItem item)
+{
+    if (item.is_plugin)
+    {
+        if (item.plugin_item != nullptr)
+            return m_plugin_item.Contains(item.plugin_item->GetItemId());
+    }
+    else
+    {
+        return m_display_item & item.item_type;
+    }
+    return false;
+}
+
+void CSetItemOrderDlg::SaveItemChecked(CommonDisplayItem item, bool checked)
+{
+    if (item.is_plugin)
+    {
+        if (item.plugin_item != nullptr)
+            m_plugin_item.SetStrContained(item.plugin_item->GetItemId(), checked);
+    }
+    else
+    {
+        if (checked)
+            m_display_item |= item.item_type;
+        else
+            m_display_item &= ~item.item_type;
+    }
 }
 
 
@@ -178,36 +199,34 @@ void CSetItemOrderDlg::OnLbnSelchangeList1()
 }
 
 
+void CSetItemOrderDlg::OnCheckChanged()
+{
+    //当用户点击项目前面的复选框时保存该项目的勾选状态
+    int cur_index{ m_list_ctrl.GetCurSel() };
+    if (cur_index >= 0 && cur_index < static_cast<int>(m_all_displayed_item.size()))
+    {
+        bool is_checked = (m_list_ctrl.GetCheck(cur_index) != 0);
+        CommonDisplayItem item = m_all_displayed_item[cur_index];
+        SaveItemChecked(item, is_checked);
+    }
+}
+
 void CSetItemOrderDlg::OnOK()
 {
     // TODO: 在此添加专用代码和/或调用基类
 
     //保存每个项目的勾选状态
-    auto item_list = m_item_order.GetAllDisplayItemsWithOrder();
-    int i = 0;
-    for (; i < static_cast<int>(item_list.size()); i++)
-    {
-        bool is_checked = (m_list_ctrl.GetCheck(i) != 0);
-        DisplayItem item = item_list[i];
-        if (is_checked)
-            m_display_item |= item;
-        else
-            m_display_item &= ~item;
-    }
+    //auto item_list = m_item_order.GetAllDisplayItemsWithOrder();
+    //int i = 0;
+    //for (; i < static_cast<int>(item_list.size()); i++)
+    //{
+    //    bool is_checked = (m_list_ctrl.GetCheck(i) != 0);
+    //    CommonDisplayItem item = item_list[i];
+    //    SaveItemChecked(item, is_checked);
+    //}
 
     if (m_display_item == 0)
         m_display_item = TDI_UP;
-
-    for (; i < m_list_ctrl.GetCount(); i++)
-    {
-        bool is_checked = (m_list_ctrl.GetCheck(i) != 0);
-        int plugin_index = i - static_cast<int>(item_list.size());
-        IPluginItem* plugin_item = theApp.m_plugins.GetItemByIndex(plugin_index);
-        if (plugin_item != nullptr)
-        {
-            m_plugin_item.SetStrContained(plugin_item->GetItemId(), is_checked);
-        }
-    }
 
     CBaseDialog::OnOK();
 }

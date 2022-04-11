@@ -9,6 +9,7 @@
 #include "CAutoAdaptSettingsDlg.h"
 #include "DisplayTextSettingDlg.h"
 #include "SetItemOrderDlg.h"
+#include "WindowsSettingHelper.h"
 
 // CTaskBarSettingsDlg 对话框
 
@@ -22,6 +23,17 @@ CTaskBarSettingsDlg::CTaskBarSettingsDlg(CWnd* pParent /*=NULL*/)
 
 CTaskBarSettingsDlg::~CTaskBarSettingsDlg()
 {
+}
+
+bool CTaskBarSettingsDlg::IsStyleModified()
+{
+    bool modified{};
+    modified |= (theApp.m_taskbar_data.text_colors != m_data.text_colors);
+    modified |= (theApp.m_taskbar_data.back_color != m_data.back_color);
+    modified |= (theApp.m_taskbar_data.transparent_color != m_data.transparent_color);
+    modified |= (theApp.m_taskbar_data.status_bar_color != m_data.status_bar_color);
+    modified |= (theApp.m_taskbar_data.specify_each_item_color != m_data.specify_each_item_color);
+    return modified && m_style_modified;
 }
 
 void CTaskBarSettingsDlg::DrawStaticColor()
@@ -92,10 +104,13 @@ void CTaskBarSettingsDlg::EnableControl()
     ShowDlgCtrl(IDC_EXE_PATH_EDIT, exe_path_enable);
     ShowDlgCtrl(IDC_BROWSE_BUTTON, exe_path_enable);
     EnableDlgCtrl(IDC_AUTO_ADAPT_SETTINGS_BUTTON, m_data.auto_adapt_light_theme);
-    EnableDlgCtrl(IDC_SHOW_DASHED_BOX, m_data.show_status_bar);
-    m_status_bar_color_static.EnableWindow(m_data.show_status_bar);
-    EnableDlgCtrl(IDC_CM_GRAPH_BAR_RADIO, m_data.show_status_bar);
-    EnableDlgCtrl(IDC_CM_GRAPH_PLOT_RADIO, m_data.show_status_bar);
+    EnableDlgCtrl(IDC_SHOW_DASHED_BOX, m_data.show_status_bar || m_data.show_netspeed_figure);
+    m_status_bar_color_static.EnableWindow(m_data.show_status_bar || m_data.show_netspeed_figure);
+    EnableDlgCtrl(IDC_CM_GRAPH_BAR_RADIO, m_data.show_status_bar || m_data.show_netspeed_figure);
+    EnableDlgCtrl(IDC_CM_GRAPH_PLOT_RADIO, m_data.show_status_bar || m_data.show_netspeed_figure);
+    EnableDlgCtrl(IDC_NET_SPEED_FIGURE_MAX_VALUE_EDIT, m_data.show_netspeed_figure);
+    EnableDlgCtrl(IDC_NET_SPEED_FIGURE_MAX_VALUE_UNIT_COMBO, m_data.show_netspeed_figure);
+    //EnableDlgCtrl(IDC_TASKBAR_WND_SNAP_CHECK, theApp.m_win_version.IsWindows11OrLater() && !m_data.tbar_wnd_on_left);
 }
 
 void CTaskBarSettingsDlg::SetTaskabrTransparent(bool transparent)
@@ -115,6 +130,9 @@ void CTaskBarSettingsDlg::SetControlMouseWheelEnable(bool enable)
     m_digit_number_combo.SetMouseWheelEnable(enable);
     m_font_size_edit.SetMouseWheelEnable(enable);
     m_memory_display_combo.SetMouseWheelEnable(enable);
+    m_item_space_edit.SetMouseWheelEnable(enable);
+    m_net_speed_figure_max_val_edit.SetMouseWheelEnable(enable);
+    m_net_speed_figure_max_val_unit_combo.SetMouseWheelEnable(enable);
 }
 
 void CTaskBarSettingsDlg::DoDataExchange(CDataExchange* pDX)
@@ -133,17 +151,14 @@ void CTaskBarSettingsDlg::DoDataExchange(CDataExchange* pDX)
     DDX_Control(pDX, IDC_AUTO_ADAPT_LIGHT_THEME_CHECK, m_atuo_adapt_light_theme_chk);
     DDX_Control(pDX, IDC_AUTO_SET_BACK_COLOR_CHECK, m_auto_set_back_color_chk);
     DDX_Control(pDX, IDC_MEMORY_DISPLAY_COMBO, m_memory_display_combo);
+    DDX_Control(pDX, IDC_ITEM_SPACE_EDIT, m_item_space_edit);
+    DDX_Control(pDX, IDC_NET_SPEED_FIGURE_MAX_VALUE_EDIT, m_net_speed_figure_max_val_edit);
+    DDX_Control(pDX, IDC_NET_SPEED_FIGURE_MAX_VALUE_UNIT_COMBO, m_net_speed_figure_max_val_unit_combo);
 }
 
 
 BEGIN_MESSAGE_MAP(CTaskBarSettingsDlg, CTabDlg)
     ON_BN_CLICKED(IDC_SET_FONT_BUTTON1, &CTaskBarSettingsDlg::OnBnClickedSetFontButton1)
-    //ON_EN_CHANGE(IDC_UPLOAD_EDIT1, &CTaskBarSettingsDlg::OnEnChangeUploadEdit1)
-    //ON_EN_CHANGE(IDC_DOWNLOAD_EDIT1, &CTaskBarSettingsDlg::OnEnChangeDownloadEdit1)
-    //ON_EN_CHANGE(IDC_CPU_EDIT1, &CTaskBarSettingsDlg::OnEnChangeCpuEdit1)
-    //ON_EN_CHANGE(IDC_MEMORY_EDIT1, &CTaskBarSettingsDlg::OnEnChangeMemoryEdit1)
-    //ON_BN_CLICKED(IDC_SET_DEFAULT_BUTTON1, &CTaskBarSettingsDlg::OnBnClickedSetDefaultButton1)
-    //ON_BN_CLICKED(IDC_SWITCH_UP_DOWN_CHECK1, &CTaskBarSettingsDlg::OnBnClickedSwitchUpDownCheck1)
     ON_BN_CLICKED(IDC_TASKBAR_WND_ON_LEFT_CHECK, &CTaskBarSettingsDlg::OnBnClickedTaskbarWndOnLeftCheck)
     ON_BN_CLICKED(IDC_SPEED_SHORT_MODE_CHECK, &CTaskBarSettingsDlg::OnBnClickedSpeedShortModeCheck)
     ON_CBN_SELCHANGE(IDC_UNIT_COMBO, &CTaskBarSettingsDlg::OnCbnSelchangeUnitCombo)
@@ -159,14 +174,6 @@ BEGIN_MESSAGE_MAP(CTaskBarSettingsDlg, CTabDlg)
     ON_BN_CLICKED(IDC_UNIT_BYTE_RADIO, &CTaskBarSettingsDlg::OnBnClickedUnitByteRadio)
     ON_BN_CLICKED(IDC_UNIT_BIT_RADIO, &CTaskBarSettingsDlg::OnBnClickedUnitBitRadio)
     ON_BN_CLICKED(IDC_SHOW_TOOL_TIP_CHK, &CTaskBarSettingsDlg::OnBnClickedShowToolTipChk)
-    //ON_BN_CLICKED(IDC_SET_LIGHT_MODE_BUTTON, &CTaskBarSettingsDlg::OnBnClickedSetLightMode)
-    ON_COMMAND(ID_DEFAULT_STYLE1, &CTaskBarSettingsDlg::OnDefaultStyle1)
-    ON_COMMAND(ID_DEFAULT_STYLE2, &CTaskBarSettingsDlg::OnDefaultStyle2)
-    ON_COMMAND(ID_DEFAULT_STYLE3, &CTaskBarSettingsDlg::OnDefaultStyle3)
-    ON_COMMAND(ID_MODIFY_DEFAULT_STYLE1, &CTaskBarSettingsDlg::OnModifyDefaultStyle1)
-    ON_COMMAND(ID_MODIFY_DEFAULT_STYLE2, &CTaskBarSettingsDlg::OnModifyDefaultStyle2)
-    ON_COMMAND(ID_MODIFY_DEFAULT_STYLE3, &CTaskBarSettingsDlg::OnModifyDefaultStyle3)
-    ON_COMMAND(ID_LIGHT_MODE_STYLE, &CTaskBarSettingsDlg::OnLightModeStyle)
     ON_BN_CLICKED(IDC_DEFAULT_STYLE_BUTTON, &CTaskBarSettingsDlg::OnBnClickedDefaultStyleButton)
     ON_WM_DESTROY()
     ON_BN_CLICKED(IDC_BROWSE_BUTTON, &CTaskBarSettingsDlg::OnBnClickedBrowseButton)
@@ -180,6 +187,11 @@ BEGIN_MESSAGE_MAP(CTaskBarSettingsDlg, CTabDlg)
     ON_CBN_SELCHANGE(IDC_MEMORY_DISPLAY_COMBO, &CTaskBarSettingsDlg::OnCbnSelchangeMemoryDisplayCombo)
     ON_BN_CLICKED(IDC_SHOW_DASHED_BOX, &CTaskBarSettingsDlg::OnBnClickedShowDashedBox)
     ON_BN_CLICKED(IDC_SET_ORDER_BUTTON, &CTaskBarSettingsDlg::OnBnClickedSetOrderButton)
+    ON_BN_CLICKED(IDC_TASKBAR_WND_SNAP_CHECK, &CTaskBarSettingsDlg::OnBnClickedTaskbarWndSnapCheck)
+    ON_EN_CHANGE(IDC_ITEM_SPACE_EDIT, &CTaskBarSettingsDlg::OnEnChangeItemSpaceEdit)
+    ON_BN_CLICKED(IDC_SHOW_NET_SPEED_FIGURE_CHECK, &CTaskBarSettingsDlg::OnBnClickedShowNetSpeedFigureCheck)
+    ON_CBN_SELCHANGE(IDC_NET_SPEED_FIGURE_MAX_VALUE_UNIT_COMBO, &CTaskBarSettingsDlg::OnCbnSelchangeNetSpeedFigureMaxValueUnitCombo)
+    ON_EN_CHANGE(IDC_NET_SPEED_FIGURE_MAX_VALUE_EDIT, &CTaskBarSettingsDlg::OnEnChangeNetSpeedFigureMaxValueEdit)
 END_MESSAGE_MAP()
 
 
@@ -216,6 +228,9 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
     ((CButton*)GetDlgItem(IDC_SEPARATE_VALUE_UNIT_CHECK))->SetCheck(m_data.separate_value_unit_with_space);
     ((CButton*)GetDlgItem(IDC_SHOW_TOOL_TIP_CHK))->SetCheck(m_data.show_tool_tip);
 
+    EnableDlgCtrl(IDC_TASKBAR_WND_SNAP_CHECK, theApp.m_win_version.IsWindows11OrLater());
+    CheckDlgButton(IDC_TASKBAR_WND_SNAP_CHECK, m_data.tbar_wnd_snap);
+
     m_text_color_static.SetLinkCursor();
     m_back_color_static.SetLinkCursor();
     //m_trans_color_static.SetLinkCursor();
@@ -233,6 +248,9 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
     m_toolTip.SetMaxTipWidth(theApp.DPI(300));
     m_toolTip.AddTool(GetDlgItem(IDC_SPEED_SHORT_MODE_CHECK), CCommon::LoadText(IDS_SPEED_SHORT_MODE_TIP));
     m_toolTip.AddTool(&m_atuo_adapt_light_theme_chk, CCommon::LoadText(IDS_AUTO_ADAPT_TIP_INFO));
+    m_toolTip.AddTool(GetDlgItem(IDC_SHOW_STATUS_BAR_CHECK), CCommon::LoadText(IDS_SHOW_RESOURCE_USAGE_GRAPH_TIP));
+    m_toolTip.AddTool(GetDlgItem(IDC_SHOW_NET_SPEED_FIGURE_CHECK), CCommon::LoadText(IDS_SHOW_NET_SPEED_GRAPH_TIP));
+
 
     if (m_data.unit_byte)
         ((CButton*)GetDlgItem(IDC_UNIT_BYTE_RADIO))->SetCheck(TRUE);
@@ -280,13 +298,15 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
     SetDlgItemText(IDC_EXE_PATH_EDIT, m_data.double_click_exe.c_str());
     EnableControl();
 
-    m_default_style_menu.LoadMenu(IDR_TASKBAR_STYLE_MENU);
+    //m_default_style_menu.LoadMenu(IDR_TASKBAR_STYLE_MENU);
 
     if (m_data.cm_graph_type)
         CheckDlgButton(IDC_CM_GRAPH_PLOT_RADIO, TRUE);
     else
         CheckDlgButton(IDC_CM_GRAPH_BAR_RADIO, TRUE);
     CheckDlgButton(IDC_SHOW_DASHED_BOX, m_data.show_graph_dashed_box);
+    m_item_space_edit.SetRange(0, 32);
+    m_item_space_edit.SetValue(m_data.item_space);
 
     //初始化内存显示方式下拉列表
     m_memory_display_combo.AddString(CCommon::LoadText(IDS_USAGE_PERCENTAGE));
@@ -294,8 +314,27 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
     m_memory_display_combo.AddString(CCommon::LoadText(IDS_MEMORY_AVAILABLE));
     m_memory_display_combo.SetCurSel(static_cast<int>(m_data.memory_display));
 
+    CheckDlgButton(IDC_SHOW_NET_SPEED_FIGURE_CHECK, m_data.show_netspeed_figure);
+    m_net_speed_figure_max_val_edit.SetRange(1, 1024);
+    m_net_speed_figure_max_val_edit.SetValue(m_data.netspeed_figure_max_value);
+    m_net_speed_figure_max_val_unit_combo.AddString(_T("KB"));
+    m_net_speed_figure_max_val_unit_combo.AddString(_T("MB"));
+    m_net_speed_figure_max_val_unit_combo.SetCurSel(m_data.netspeed_figure_max_value_unit);
+
     ((CButton*)GetDlgItem(IDC_SET_ORDER_BUTTON))->SetIcon(theApp.GetMenuIcon(IDI_ITEM));
 
+    //初始化“预设方案”菜单
+    m_default_style_menu.CreatePopupMenu();
+    m_modify_default_style_menu.CreatePopupMenu();
+    for (int i{ 0 }; i < TASKBAR_DEFAULT_STYLE_NUM; i++)
+    {
+        CString item_name;
+        item_name.Format(_T("%s %d"), CCommon::LoadText(IDS_PRESET).GetString(), i + 1);
+        m_default_style_menu.AppendMenu(MF_STRING | MF_ENABLED, ID_DEFAULT_STYLE1 + i, item_name);
+        m_modify_default_style_menu.AppendMenu(MF_STRING | MF_ENABLED, ID_MODIFY_DEFAULT_STYLE1 + i, item_name);
+    }
+    m_default_style_menu.AppendMenu(MF_SEPARATOR);
+    m_default_style_menu.AppendMenu(MF_POPUP | MF_STRING, (UINT)m_modify_default_style_menu.m_hMenu, CCommon::LoadText(IDS_MODIFY_PRESET));
 
     return TRUE;  // return TRUE unless you set the focus to a control
                   // 异常: OCX 属性页应返回 FALSE
@@ -334,90 +373,11 @@ void CTaskBarSettingsDlg::OnBnClickedSetFontButton1()
 }
 
 
-//void CTaskBarSettingsDlg::OnEnChangeUploadEdit1()
-//{
-//  // TODO:  如果该控件是 RICHEDIT 控件，它将不
-//  // 发送此通知，除非重写 CTabDlg::OnInitDialog()
-//  // 函数并调用 CRichEditCtrl().SetEventMask()，
-//  // 同时将 ENM_CHANGE 标志“或”运算到掩码中。
-//
-//  // TODO:  在此添加控件通知处理程序代码
-//  CString tmp;
-//  GetDlgItemText(IDC_UPLOAD_EDIT1, tmp);
-//  m_data.disp_str.Get(TDI_UP) = tmp;
-//}
-//
-//
-//void CTaskBarSettingsDlg::OnEnChangeDownloadEdit1()
-//{
-//  // TODO:  如果该控件是 RICHEDIT 控件，它将不
-//  // 发送此通知，除非重写 CTabDlg::OnInitDialog()
-//  // 函数并调用 CRichEditCtrl().SetEventMask()，
-//  // 同时将 ENM_CHANGE 标志“或”运算到掩码中。
-//
-//  // TODO:  在此添加控件通知处理程序代码
-//  CString tmp;
-//  GetDlgItemText(IDC_DOWNLOAD_EDIT1, tmp);
-//  m_data.disp_str.Get(TDI_DOWN) = tmp;
-//}
-//
-//
-//void CTaskBarSettingsDlg::OnEnChangeCpuEdit1()
-//{
-//  // TODO:  如果该控件是 RICHEDIT 控件，它将不
-//  // 发送此通知，除非重写 CTabDlg::OnInitDialog()
-//  // 函数并调用 CRichEditCtrl().SetEventMask()，
-//  // 同时将 ENM_CHANGE 标志“或”运算到掩码中。
-//
-//  // TODO:  在此添加控件通知处理程序代码
-//  CString tmp;
-//  GetDlgItemText(IDC_CPU_EDIT1, tmp);
-//  m_data.disp_str.Get(TDI_CPU) = tmp;
-//}
-//
-//
-//void CTaskBarSettingsDlg::OnEnChangeMemoryEdit1()
-//{
-//  // TODO:  如果该控件是 RICHEDIT 控件，它将不
-//  // 发送此通知，除非重写 CTabDlg::OnInitDialog()
-//  // 函数并调用 CRichEditCtrl().SetEventMask()，
-//  // 同时将 ENM_CHANGE 标志“或”运算到掩码中。
-//
-//  // TODO:  在此添加控件通知处理程序代码
-//  CString tmp;
-//  GetDlgItemText(IDC_MEMORY_EDIT1, tmp);
-//  m_data.disp_str.Get(TDI_MEMORY) = tmp;
-//}
-
-
-//void CTaskBarSettingsDlg::OnBnClickedSetDefaultButton1()
-//{
-//  // TODO: 在此添加控件通知处理程序代码
-//  m_data.disp_str.Get(TDI_UP) = L"↑: ";
-//  m_data.disp_str.Get(TDI_DOWN) = L"↓: ";
-//  m_data.disp_str.Get(TDI_CPU) = L"CPU: ";
-//  m_data.disp_str.Get(TDI_MEMORY) = CCommon::LoadText(IDS_MEMORY_DISP, _T(": "));
-//  SetDlgItemText(IDC_UPLOAD_EDIT1, m_data.disp_str.Get(TDI_UP).c_str());
-//  SetDlgItemText(IDC_DOWNLOAD_EDIT1, m_data.disp_str.Get(TDI_DOWN).c_str());
-//  SetDlgItemText(IDC_CPU_EDIT1, m_data.disp_str.Get(TDI_CPU).c_str());
-//  SetDlgItemText(IDC_MEMORY_EDIT1, m_data.disp_str.Get(TDI_MEMORY).c_str());
-//}
-
-
-//void CTaskBarSettingsDlg::OnBnClickedSwitchUpDownCheck1()
-//{
-//    // TODO: 在此添加控件通知处理程序代码
-//    m_data.swap_up_down = (((CButton*)GetDlgItem(IDC_SWITCH_UP_DOWN_CHECK1))->GetCheck() != 0);
-//}
-
-
 void CTaskBarSettingsDlg::OnBnClickedTaskbarWndOnLeftCheck()
 {
     // TODO: 在此添加控件通知处理程序代码
     m_data.tbar_wnd_on_left = (((CButton*)GetDlgItem(IDC_TASKBAR_WND_ON_LEFT_CHECK))->GetCheck() != 0);
-	//if (m_win_version.IsWindows11OrLater()) {
- //       m_data.tbar_wnd_snap = (MessageBoxW(_T("将窗口贴靠到状态栏吗？\n不贴靠将置于底栏两端。"), _T("Windows11 兼容设置"), MB_YESNO | MB_ICONQUESTION) == 6); // 本地化暂缺。考虑增加一个设置项代替弹窗
- //   }
+    EnableControl();
 }
 
 
@@ -486,9 +446,21 @@ void CTaskBarSettingsDlg::OnOK()
     bool is_taskbar_transparent_checked = (m_background_transparent_chk.GetCheck() != 0);
     SetTaskabrTransparent(is_taskbar_transparent_checked);
 
+    SaveColorSettingToDefaultStyle();
+
     CTabDlg::OnOK();
 }
 
+
+void CTaskBarSettingsDlg::SaveColorSettingToDefaultStyle()
+{
+    //如果开启了自动适应Windows10深色/浅色模式功能时，自动将当前配置保存到对应预设
+    if (theApp.m_taskbar_data.auto_save_taskbar_color_settings_to_preset && m_data.auto_adapt_light_theme && IsStyleModified())
+    {
+        int default_style_saved{ CWindowsSettingHelper::IsWindows10LightTheme() ? m_data.light_default_style : m_data.dark_default_style };
+        ModifyDefaultStyle(default_style_saved);
+    }
+}
 
 void CTaskBarSettingsDlg::OnBnClickedValueRightAlignCheck()
 {
@@ -518,6 +490,7 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
             {
                 m_data.text_colors = colorDlg.GetColors();
                 DrawStaticColor();
+                m_style_modified = true;
             }
         }
         else if (!m_data.text_colors.empty())
@@ -529,6 +502,7 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
                 if (m_data.back_color == m_data.text_colors.begin()->second.label)
                     MessageBox(CCommon::LoadText(IDS_SAME_TEXT_BACK_COLOR_WARNING), NULL, MB_ICONWARNING);
                 DrawStaticColor();
+                m_style_modified = true;
             }
         }
         break;
@@ -550,6 +524,7 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
                 m_data.transparent_color = m_data.back_color;
             }
             DrawStaticColor();
+            m_style_modified = true;
         }
         break;
     }
@@ -570,6 +545,7 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
         {
             m_data.status_bar_color = colorDlg.GetColor();
             DrawStaticColor();
+            m_style_modified = true;
         }
         break;
     }
@@ -585,6 +561,7 @@ void CTaskBarSettingsDlg::OnBnClickedSpecifyEachItemColorCheck()
     // TODO: 在此添加控件通知处理程序代码
     m_data.specify_each_item_color = (((CButton*)GetDlgItem(IDC_SPECIFY_EACH_ITEM_COLOR_CHECK))->GetCheck() != 0);
     DrawStaticColor();
+    m_style_modified = true;
 }
 
 
@@ -640,77 +617,6 @@ void CTaskBarSettingsDlg::OnBnClickedShowToolTipChk()
     m_data.show_tool_tip = (((CButton*)GetDlgItem(IDC_SHOW_TOOL_TIP_CHK))->GetCheck() != 0);
 }
 
-//void CTaskBarSettingsDlg::OnBnClickedSetLightMode()
-//{
-//  // TODO: 在此添加控件通知处理程序代码
-//  for (int i{}; i < TASKBAR_COLOR_NUM; i++)
-//      m_data.text_colors[i] = RGB(0, 0, 0);
-//  m_data.back_color = RGB(210, 210, 210);
-//  m_data.transparent_color = RGB(210, 210, 210);
-//  m_data.status_bar_color = RGB(165, 165, 165);
-//  DrawStaticColor();
-//}
-
-
-void CTaskBarSettingsDlg::OnDefaultStyle1()
-{
-    // TODO: 在此添加命令处理程序代码
-    ApplyDefaultStyle(0);
-}
-
-
-void CTaskBarSettingsDlg::OnDefaultStyle2()
-{
-    // TODO: 在此添加命令处理程序代码
-    ApplyDefaultStyle(1);
-}
-
-
-void CTaskBarSettingsDlg::OnDefaultStyle3()
-{
-    // TODO: 在此添加命令处理程序代码
-    ApplyDefaultStyle(2);
-}
-
-
-void CTaskBarSettingsDlg::OnModifyDefaultStyle1()
-{
-    // TODO: 在此添加命令处理程序代码
-    if (MessageBox(CCommon::LoadTextFormat(IDS_SAVE_DEFAULT_STYLE_INQUIRY, { 1 }), NULL, MB_ICONQUESTION | MB_YESNO) == IDYES)
-    {
-        ModifyDefaultStyle(0);
-    }
-}
-
-
-void CTaskBarSettingsDlg::OnModifyDefaultStyle2()
-{
-    // TODO: 在此添加命令处理程序代码
-    if (MessageBox(CCommon::LoadTextFormat(IDS_SAVE_DEFAULT_STYLE_INQUIRY, { 2 }), NULL, MB_ICONQUESTION | MB_YESNO) == IDYES)
-    {
-        ModifyDefaultStyle(1);
-    }
-}
-
-
-void CTaskBarSettingsDlg::OnModifyDefaultStyle3()
-{
-    // TODO: 在此添加命令处理程序代码
-    if (MessageBox(CCommon::LoadTextFormat(IDS_SAVE_DEFAULT_STYLE_INQUIRY, { 3 }), NULL, MB_ICONQUESTION | MB_YESNO) == IDYES)
-    {
-        ModifyDefaultStyle(2);
-    }
-}
-
-
-void CTaskBarSettingsDlg::OnLightModeStyle()
-{
-    // TODO: 在此添加命令处理程序代码
-    CTaskbarDefaultStyle::ApplyDefaultLightStyle(m_data);
-    DrawStaticColor();
-    m_background_transparent_chk.SetCheck(IsTaskbarTransparent());
-}
-
 
 void CTaskBarSettingsDlg::OnBnClickedDefaultStyleButton()
 {
@@ -723,11 +629,8 @@ void CTaskBarSettingsDlg::OnBnClickedDefaultStyleButton()
         pBtn->GetWindowRect(rect);
         point.x = rect.left;
         point.y = rect.bottom;
-        CMenu* pMenu = m_default_style_menu.GetSubMenu(0);
-        if (pMenu != NULL)
-            pMenu->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point.x, point.y, this);
+        m_default_style_menu.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point.x, point.y, this);
     }
-
 }
 
 
@@ -768,6 +671,7 @@ void CTaskBarSettingsDlg::OnBnClickedBackgroundTransparentCheck()
     // TODO: 在此添加控件通知处理程序代码
     bool checked = (m_background_transparent_chk.GetCheck() != 0);
     SetTaskabrTransparent(checked);
+    m_style_modified = true;
 }
 
 
@@ -829,4 +733,66 @@ void CTaskBarSettingsDlg::OnBnClickedSetOrderButton()
         m_data.m_tbar_display_item = dlg.GetDisplayItem();
         m_data.plugin_display_item = dlg.GetPluginDisplayItem();
     }
+}
+
+
+void CTaskBarSettingsDlg::OnBnClickedTaskbarWndSnapCheck()
+{
+    // TODO: 在此添加控件通知处理程序代码
+    m_data.tbar_wnd_snap = (IsDlgButtonChecked(IDC_TASKBAR_WND_SNAP_CHECK) != 0);
+}
+
+
+void CTaskBarSettingsDlg::OnEnChangeItemSpaceEdit()
+{
+    // TODO:  如果该控件是 RICHEDIT 控件，它将不
+    // 发送此通知，除非重写 CTabDlg::OnInitDialog()
+    // 函数并调用 CRichEditCtrl().SetEventMask()，
+    // 同时将 ENM_CHANGE 标志“或”运算到掩码中。
+
+    // TODO:  在此添加控件通知处理程序代码
+    m_data.item_space = m_item_space_edit.GetValue();
+    m_data.ValidItemSpace();
+}
+
+
+BOOL CTaskBarSettingsDlg::OnCommand(WPARAM wParam, LPARAM lParam)
+{
+    // TODO: 在此添加专用代码和/或调用基类
+    UINT cmd = LOWORD(wParam);
+
+    if (cmd >= ID_DEFAULT_STYLE1 && cmd < ID_DEFAULT_STYLE_MAX)
+    {
+        int default_style = cmd - ID_DEFAULT_STYLE1;
+        ApplyDefaultStyle(default_style);
+    }
+    if (cmd >= ID_MODIFY_DEFAULT_STYLE1 && cmd < ID_MODIFY_DEFAULT_STYLE_MAX)
+    {
+        int default_style = cmd - ID_MODIFY_DEFAULT_STYLE1;
+        if (MessageBox(CCommon::LoadTextFormat(IDS_SAVE_DEFAULT_STYLE_INQUIRY, { default_style + 1 }), NULL, MB_ICONQUESTION | MB_YESNO) == IDYES)
+        {
+            ModifyDefaultStyle(default_style);
+        }
+    }
+
+    return CTabDlg::OnCommand(wParam, lParam);
+}
+
+
+void CTaskBarSettingsDlg::OnBnClickedShowNetSpeedFigureCheck()
+{
+    m_data.show_netspeed_figure = (IsDlgButtonChecked(IDC_SHOW_NET_SPEED_FIGURE_CHECK) != 0);
+    EnableControl();
+}
+
+
+void CTaskBarSettingsDlg::OnCbnSelchangeNetSpeedFigureMaxValueUnitCombo()
+{
+    m_data.netspeed_figure_max_value_unit = m_net_speed_figure_max_val_unit_combo.GetCurSel();
+}
+
+
+void CTaskBarSettingsDlg::OnEnChangeNetSpeedFigureMaxValueEdit()
+{
+    m_data.netspeed_figure_max_value = m_net_speed_figure_max_val_edit.GetValue();
 }
