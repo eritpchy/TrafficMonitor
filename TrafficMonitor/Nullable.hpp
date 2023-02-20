@@ -1,12 +1,15 @@
 ﻿#pragma once
+#include <functional>
 #include <type_traits>
+#include <stdexcept>
+#include <tuple>
 
 template <class T>
 using std_aligned_storage = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
 
 //皆不保证多线程操作安全
 /**
- * @brief Nullable<T>的默认删除器，注意重载operator()的参数为T*
+ * @brief CNullable<T>的默认删除器，注意重载operator()的参数为T*
  *
  * @tparam T 要删除的类型
  */
@@ -25,38 +28,83 @@ struct NullableDefaultDeleter
  * @tparam Deleter T的删除器
  */
 template <class T, class Deleter = NullableDefaultDeleter<T>>
-class Nullable
+class CNullable
 {
-public:
-    Nullable(Deleter deleter = {})
-        : m_has_value_and_ebo_deleter{deleter} {}
-    ~Nullable()
+    using StorageType = std_aligned_storage<T>;
+    using RawType = std::decay_t<T>;
+    template <class... Args>
+    static void EmplaceAt(RawType* p_object, Args&&... args)
     {
-        if (m_has_value_and_ebo_deleter)
+        ::new (p_object) RawType(std::forward<Args>(args)...);
+    }
+
+public:
+    CNullable(Deleter deleter = {})
+        : m_storage{deleter} {}
+    ~CNullable()
+    {
+        if (m_has_value)
         {
             DestroySelf();
         }
     }
-    Nullable(const Nullable&) = delete;
-    Nullable operator=(const Nullable&) = delete;
+    CNullable(const CNullable& other)
+        : m_has_value{other.m_has_value}, m_storage{static_cast<Deleter>(other.m_storage)}
+    {
+        if (other)
+        {
+            EmplaceAt(m_storage.GetPointerUnsafe(), other.m_storage.GetUnsafe());
+        }
+    }
+    CNullable& operator=(const CNullable& other)
+    {
+        this->m_has_value = other.m_has_value;
+        Deleter& ref_deleter = m_storage;
+        ref_deleter = static_cast<Deleter>(other.m_storage);
+        if (other)
+        {
+            EmplaceAt(m_storage.GetPointerUnsafe(), other.m_storage.GetUnsafe());
+        }
+    }
+    CNullable(CNullable&& other) noexcept
+        : m_has_value{other.m_has_value}, m_storage{std::move(static_cast<Deleter>(other.m_storage))}
+    {
+        if (other)
+        {
+            EmplaceAt(m_storage.GetPointerUnsafe(), std::move(other.m_storage.GetUnsafe()));
+        }
+    }
+    CNullable& operator=(CNullable&& other) noexcept
+    {
+        this->m_has_value = other.m_has_value;
+        Deleter& ref_deleter = m_storage;
+        ref_deleter = std::move(static_cast<Deleter>(other.m_storage));
+        if (other)
+        {
+            EmplaceAt(m_storage.GetPointerUnsafe(), std::move(other.m_storage.GetUnsafe()));
+        }
+    }
+
     template <class... Args>
     void Construct(Args&&... args)
     {
-        if (m_has_value_and_ebo_deleter)
+        if (m_has_value)
         {
             DestroySelf();
-            m_has_value_and_ebo_deleter.SetHasValue(false);
+            m_has_value = false;
         }
-        ::new (&m_storage) T(std::forward<Args>(args)...);
-        m_has_value_and_ebo_deleter.SetHasValue(true);
+
+        EmplaceAt(m_storage.GetPointerUnsafe(), std::forward<Args>(args)...);
+
+        m_has_value = true;
     }
     const T& GetUnsafe() const noexcept
     {
-        return *static_cast<const T*>(static_cast<const void*>(std::addressof(m_storage)));
+        return m_storage.GetUnsafe();
     }
     T& GetUnsafe() noexcept
     {
-        return *static_cast<T*>(static_cast<void*>(std::addressof(m_storage)));
+        return m_storage.GetUnsafe();
     }
     const T& Get() const noexcept
     {
@@ -68,16 +116,29 @@ public:
         Check();
         return GetUnsafe();
     }
+    bool HasValue() const noexcept
+    {
+        return m_has_value;
+    }
     operator bool() const noexcept
     {
-        return m_has_value_and_ebo_deleter;
+        return HasValue();
     }
 
 private:
     void DestroySelf()
     {
-        static_cast<Deleter>(m_has_value_and_ebo_deleter).operator()(&Get());
+        auto&& ref_deleter = static_cast<Deleter&>(m_storage);
+        ref_deleter(m_storage.GetPointerUnsafe());
     }
+    void Check() const
+    {
+        if (!m_has_value)
+        {
+            throw CallNullObjectError{};
+        }
+    }
+
     class CallNullObjectError : public std::runtime_error
     {
     public:
@@ -85,36 +146,53 @@ private:
             : std::runtime_error{"Value is uninitialized!"} {}
         ~CallNullObjectError() override = default;
     };
-    void Check() const
-    {
-        if (!m_has_value_and_ebo_deleter)
-        {
-            throw CallNullObjectError{};
-        }
-    }
 
-    std_aligned_storage<T> m_storage{};
-    class HasValueAndEboDeleter : public Deleter
+    class StorageAndEboDeleter : public Deleter
     {
-    public:
-        HasValueAndEboDeleter(Deleter deleter) : Deleter(deleter) {}
-        ~HasValueAndEboDeleter() = default;
-        operator bool() const noexcept
-        {
-            return m_has_value;
-        }
-        void SetHasValue(bool value)
-        {
-            m_has_value = value;
-        }
-
     private:
-        bool m_has_value{false};
-    } m_has_value_and_ebo_deleter{};
+        StorageType m_storage;
+
+        auto GetStoragePointer() const noexcept
+            -> const StorageType*
+        {
+            return std::addressof(m_storage);
+        }
+        auto GetStoragePointer() noexcept
+            -> StorageType*
+        {
+            return std::addressof(m_storage);
+        }
+
+    public:
+        explicit StorageAndEboDeleter(Deleter deleter)
+            : Deleter{deleter} {}
+        ~StorageAndEboDeleter() = default;
+        StorageAndEboDeleter(const StorageAndEboDeleter&) = delete;
+        StorageAndEboDeleter& operator=(const StorageAndEboDeleter&) = delete;
+
+        const T& GetUnsafe() const noexcept
+        {
+            return *static_cast<const T*>(static_cast<const void*>(GetStoragePointer()));
+        }
+        T& GetUnsafe() noexcept
+        {
+            return *static_cast<T*>(static_cast<void*>(GetStoragePointer()));
+        }
+        const T* GetPointerUnsafe() const noexcept
+        {
+            return static_cast<const T*>(static_cast<const void*>(GetStoragePointer()));
+        }
+        T* GetPointerUnsafe() noexcept
+        {
+            return static_cast<T*>(static_cast<void*>(GetStoragePointer()));
+        }
+    };
+    bool m_has_value{false};
+    StorageAndEboDeleter m_storage;
 };
 template <class T, class Deleter = NullableDefaultDeleter<T>>
 auto MakeNullableObject(Deleter deleter)
-    -> Nullable<T, Deleter>
+    -> CNullable<T, Deleter>
 {
     return {deleter};
 }
@@ -126,26 +204,79 @@ auto MakeNullableObject(Deleter deleter)
  * @tparam Deleter T的删除器，默认为NullableDefaultDeleter<T>
  */
 template <class T, class Deleter = NullableDefaultDeleter<T>>
-class LazyConstructable
+class CLazyConstructable
 {
 public:
-    LazyConstructable() = default;
-    ~LazyConstructable() = default;
+    CLazyConstructable() = default;
+    ~CLazyConstructable() = default;
     T& Get()
     {
-        if (m_is_available)
+        if (m_content)
         {
             return m_content.GetUnsafe();
         }
         else
         {
             m_content.Construct();
-            m_is_available = true;
             return m_content.GetUnsafe();
         }
     }
 
 private:
-    Nullable<T, Deleter> m_content{};
-    bool m_is_available{false};
+    CNullable<T, Deleter> m_content{};
 };
+
+template <class T, class Deleter, class Tuple>
+class CLazyConstructableWithInitializer;
+
+template <class T, class Deleter, template <class...> class Container, class... InitArgs>
+class CLazyConstructableWithInitializer<T, Deleter, Container<InitArgs...>>
+{
+private:
+    using ArgsContainer = Container<InitArgs...>;
+    using ArgsInitFunction = std::function<ArgsContainer()>;
+    constexpr static std::size_t init_args_size = sizeof...(InitArgs);
+    template <class Tuple, std::size_t... Indexs>
+    void ConstructHelper(Tuple&& args, std::index_sequence<Indexs...>)
+    {
+        m_content.Construct(std::get<Indexs>(args)...);
+    }
+
+public:
+    CLazyConstructableWithInitializer(ArgsInitFunction init_function)
+        : m_init_function{init_function}
+    {
+    }
+    ~CLazyConstructableWithInitializer() = default;
+    T& Get()
+    {
+        if (m_content)
+        {
+            return m_content.GetUnsafe();
+        }
+        else
+        {
+            auto init_args{std::move(m_init_function())};
+            ConstructHelper(
+                init_args,
+                std::make_index_sequence<std::tuple_size<decltype(init_args)>{}>{});
+            return m_content.GetUnsafe();
+        }
+    }
+    bool HasValue() const noexcept
+    {
+        return m_content.HasValue();
+    }
+    operator bool() const noexcept
+    {
+        return HasValue();
+    }
+
+private:
+    CNullable<T, Deleter> m_content{};
+    ArgsInitFunction m_init_function{};
+};
+
+template <class T, class... Args>
+using DefaultCLazyConstructableWithInitializer =
+    CLazyConstructableWithInitializer<T, NullableDefaultDeleter<T>, std::tuple<Args...>>;

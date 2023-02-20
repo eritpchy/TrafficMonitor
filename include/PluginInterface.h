@@ -112,6 +112,23 @@ public:
      */
     virtual int OnMouseEvent(MouseEventType type, int x, int y, void* hWnd, int flag) { return 0; }
 
+    enum KeyboardEventFlag
+    {
+        KF_TASKBAR_WND = 1 << 0,        /**< 是否为任务栏窗口的键盘事件 */
+    };
+
+    /**
+     * @brief   当插件显示区域有键盘事件时由主程序调用
+     * @param   int key 按下的键
+     * @param   bool ctrl 是否按下了Ctrl键
+     * @param   bool shift 是否按下了Shift键
+     * @param   bool alt 是否按下了Alt键
+     * @param   void* hWnd 产生此键盘事件的窗口的句柄（主窗口或任务栏窗口）
+     * @param   int flag 为若干KeyboardEventFlag枚举常量的组合
+     * @return  int 如果返回非0，则主程序认为插件已经对此键盘事件作出了全部的响应，主程序将不会再对此键盘事件做额外的响应。
+     */
+    virtual int OnKeboardEvent(int key, bool ctrl, bool shift, bool alt, void* hWnd, int flag) { return 0; }
+
     enum ItemInfoType
     {
 
@@ -129,7 +146,7 @@ public:
      * @attention 插件开发者不应该修改这里的返回值，也不应该重写此虚函数。
      * @return  int
      */
-    virtual int GetAPIVersion() const { return 3; }
+    virtual int GetAPIVersion() const { return 5; }
 
     /**
      * @brief   获取插件显示项目的对象
@@ -241,6 +258,46 @@ public:
      */
     virtual void OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* data) {}
 
+    /**
+     * @brief   获取插件的图标，HICON格式
+     */
+    virtual void* GetPluginIcon() { return nullptr; }
+
+    /**
+     * @brief   获取插件的命令的数量
+     * @return  int 插件的命令的数量
+     */
+    virtual int GetCommandCount() { return 0; }
+
+    /**
+     * @brief   获取插件的命令名称
+     * @param   int command_index 插件命令的索引（从0开始，小于GetCommandCount()的返回值）
+     * @return  wchar_t* 插件命令的名称
+     */
+    virtual const wchar_t* GetCommandName(int command_index) { return nullptr; }
+
+    /**
+     * @brief   获取插件的命令图标
+     * @param   int command_index 插件命令的索引（从0开始，小于GetCommandCount()的返回值）
+     * @return  void* 插件命令的图标，HICON格式
+     */
+    virtual void* GetCommandIcon(int command_index) { return nullptr; }
+
+    /**
+     * @brief   执行一个插件命令时由框架调用
+     * @param   int command_index 插件命令的索引（从0开始，小于GetCommandCount()的返回值）
+     * @param   void* hWnd 发送此命令的窗口句柄
+     * @param   void* para 预留参数
+     */
+    virtual void OnPluginCommand(int command_index, void* hWnd, void* para) {}
+
+    /**
+    * @brief   获取插件命令是否处于勾选状态
+    * @param   int command_index 插件命令的索引（从0开始，小于GetCommandCount()的返回值）
+    * @return  1：已勾选；0：未勾选
+    */
+    virtual int IsCommandChecked(int command_index) { return false; }
+
 };
 
 /*
@@ -261,5 +318,9 @@ public:
 *     2       | 新增 ITMPlugin::GetTooltipInfo 函数
 * -------------------------------------------------------------------------
 *     3       | 新增 IPluginItem::GetItemWidthEx, IPluginItem::OnMouseEvent 函数
+* -------------------------------------------------------------------------
+*     4       | 新增 IPluginItem::OnKeboardEvent IPluginItem::OnItemInfo 函数
+* -------------------------------------------------------------------------
+*     5       | 新增 ITMPlugin::GetCommandName ITMPlugin::GetCommandIcon ITMPlugin::OnPluginCommand 函数
 * -------------------------------------------------------------------------
 */

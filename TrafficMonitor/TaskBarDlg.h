@@ -2,9 +2,12 @@
 #include "Common.h"
 #include "afxwin.h"
 #include "DrawCommon.h"
+#include "TaskBarDlgDrawCommon.h"
+#include "TrafficMonitor.h"
 #include "IniHelper.h"
 #include "CommonData.h"
 #include "TaskbarItemOrderHelper.h"
+#include "SupportedRenderEnums.h"
 #include <list>
 
 // CTaskBarDlg 对话框
@@ -79,6 +82,7 @@ protected:
     HWND m_hMin;		//最小化窗口的句柄
     HWND m_hNotify;     //任务栏通知区域的句柄
 
+    CRect m_rcTaskbar;  //任务栏的矩形区域
     CRect m_rcNotify;   //任务栏通知区域的矩形区域
     CRect m_rcBar;		//初始状态时任务栏窗口的矩形区域
     CRect m_rcMin;		//最小化窗口的矩形区域
@@ -86,7 +90,17 @@ protected:
     CRect m_rect;		//当前窗口的矩形区域
     int m_window_width{};
     int m_window_height{};
-    LazyConstructable<D2D1DCSupport> m_d2d1_dc_support;//提供D2D1绘图支持
+    CSupportedRenderEnums m_supported_render_enums{};
+    DefaultCLazyConstructableWithInitializer<
+        CTaskBarDlgDrawCommonWindowSupport,
+        CTaskBarDlgDrawCommonSupport&>
+        m_taskbar_draw_common_window_support{[]() -> std::tuple<CTaskBarDlgDrawCommonSupport&>
+                                             { return {theApp.m_d2d_taskbar_draw_common_support.Get()}; }}; //提供D2D1绘图支持
+    DefaultCLazyConstructableWithInitializer<
+        CD2D1DeviceContextWindowSupport,
+        CTaskBarDlgDrawCommonSupport&>
+        m_d2d1_device_context_support{[]() -> std::tuple<CTaskBarDlgDrawCommonSupport&>
+                                      { return {theApp.m_d2d_taskbar_draw_common_support.Get()}; }};
 
     //任务栏各个部分的宽度
     struct ItemWidth
@@ -169,10 +183,8 @@ protected:
 
     void MoveWindow(CRect rect);
 
-    static auto GetRenderType()
-        ->DrawCommonHelper::RenderType;
-
 public:
+    static void DisableRenderFeatureIfNecessary(CSupportedRenderEnums& ref_supported_render_enums);
     void SetTextFont();
     void ApplySettings();
     void CalculateWindowSize();		//计算窗口每部分的大小，及各个部分的宽度。窗口大小保存到m_window_width和m_window_height中，各部分宽度保存到m_item_widths中
@@ -210,6 +222,5 @@ public:
     afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 protected:
     afx_msg LRESULT OnExitmenuloop(WPARAM wParam, LPARAM lParam);
-    //锁定D2D的dpi为96
-    afx_msg LRESULT OnDpichanged(WPARAM wParam, LPARAM lParam);
+    afx_msg LRESULT OnTabletQuerysystemgesturestatus(WPARAM wParam, LPARAM lParam);
 };

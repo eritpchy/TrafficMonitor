@@ -43,6 +43,7 @@ public:
     IPluginItem* GetItemByIndex(int index);
     int GetItemIndex(IPluginItem* item) const;
     ITMPlugin* GetPluginByItem(IPluginItem* pItem);
+    int GetPluginIndex(ITMPlugin* plugin) const;
 
     //遍历所有插件
     //func: 参数为遍历到的ITMPlugin对象
@@ -55,6 +56,10 @@ public:
     const std::set<CommonDisplayItem>& AllDisplayItemsWithPlugins();
 
     int GetItemWidth(IPluginItem* pItem, CDC* pDC);
+
+private:
+    static void ReplacePluginDrawTextFunction(HMODULE plgin_dll_module) noexcept;
+    static void ReplaceMfcDrawTextFunction() noexcept;
 
 private:
     std::vector<IPluginItem*> m_plugins;

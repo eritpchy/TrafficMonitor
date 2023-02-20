@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "BaseDialog.h"
 #include "LinkStatic.h"
+#include "ListCtrlEx.h"
 
 // CPluginManagerDlg 对话框
 
@@ -18,12 +19,13 @@ public:
 #endif
 
 private:
-    CListCtrl m_list_ctrl;
+    CListCtrlEx m_list_ctrl;
     int m_item_selected{ -1 };
     CMenu m_menu;
     CLinkStatic m_plugin_download_lnk;
     CLinkStatic m_plugin_dev_guide_lnk;
     CLinkStatic m_open_plugin_dir_lnk;
+    CImageList m_plugin_icon_list;
 
 protected:
     virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持

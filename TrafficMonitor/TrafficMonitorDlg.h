@@ -97,7 +97,7 @@ protected:
     unsigned int m_monitor_time_cnt{};
     int m_zero_speed_cnt{}; //如果检测不到网速，该变量就会自加
     int m_insert_to_taskbar_cnt{};  //用来统计尝试嵌入任务栏的次数
-    int m_cannot_intsert_to_task_bar_warning{ true };   //指示是否会在无法嵌入任务栏时弹出提示框
+    int m_cannot_insert_to_task_bar_warning{ true };   //指示是否会在无法嵌入任务栏时弹出提示框
 
     static unsigned int m_WM_TASKBARCREATED;    //任务栏重启消息
 
@@ -248,4 +248,11 @@ public:
     afx_msg void OnDisplaySettings();
     afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
     afx_msg void OnRefreshConnectionList();
+protected:
+    afx_msg LRESULT OnTabletQuerysystemgesturestatus(WPARAM wParam, LPARAM lParam);
+public:
+    afx_msg void OnPluginOptions();
+    afx_msg void OnPluginDetail();
+    afx_msg void OnPluginOptionsTaksbar();
+    afx_msg void OnPluginDetailTaksbar();
 };

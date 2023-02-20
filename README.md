@@ -1,7 +1,7 @@
 **简体中文 | [English](./README_en-us.md)**<br>
 [![Badge](https://img.shields.io/badge/link-996.icu-%23FF4D5B.svg?style=flat-square)](https://996.icu/#/en_US)
 [![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg?style=flat-square)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/zhongyang219/TrafficMonitor/Release%20CI?label=Release%20CI&logo=github&style=flat-square)](https://github.com/zhongyang219/TrafficMonitor/actions?query=workflow:"Release+CI")
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/zhongyang219/TrafficMonitor/main.yml?branch=master&label=Release%20CI&logo=github&style=flat-square)](https://github.com/zhongyang219/TrafficMonitor/actions?query=workflow:"Release+CI")
 [![GitHub release](https://img.shields.io/github/release/zhongyang219/TrafficMonitor.svg?style=flat-square)](https://github.com/zhongyang219/TrafficMonitor/releases/latest)
 
 # TrafficMonitor 简介
@@ -14,7 +14,7 @@ Traffic Monitor是一款用于Windows平台的网速监控悬浮窗软件，可�
 
 国内用户如果遇到Github下载缓慢的问题，可以[点击此处](https://gitee.com/zhongyang219/TrafficMonitor)转到此项目在Gitee上的页面。
 
-如果遇到问题，请[点击此处](./Help.md)。<br>
+如果遇到问题，请[点击此处](./Help.md)查看常见问题。<br>
 
 你也可以[点击此处](https://github.com/zhongyang219/TrafficMonitor/actions?query=workflow:"Release+CI")下载TrafficMonitor的预发行构建版本。
 
@@ -36,7 +36,8 @@ TrafficMonitor提供了普通版和Lite版两种版本可用。普通版包含�
 | ----------------------------- | ------ | ------ |
 | 网速监控                      | ✔      | ✔      |
 | CPU、内存利用率          | ✔      | ✔      |
-| CPU、显卡、硬盘、主板温度监控、CPU频率监控  | ✔      | ❌      |
+| CPU、显卡、硬盘、主板温度监控  | ✔      | ❌      |
+| CPU频率监控 | ✔ | ❌ |
 | 显卡利用率监控                | ✔      | ❌      |
 | 硬盘利用率监控                | ✔      | ❌      |
 | 网络详细信息                  | ✔      | ✔      |
@@ -89,8 +90,6 @@ TrafficMonitor支持将信息显示到任务栏。但是TrafficMonitor默认只�
 详细的皮肤制作教程请点击以下链接：
 
 [皮肤制作教程 · zhongyang219/TrafficMonitor Wiki (github.com)](https://github.com/zhongyang219/TrafficMonitor/wiki/皮肤制作教程)
-
-推荐使用[皮肤编辑器](https://github.com/zhongyang219/TrafficMonitorSkinEditor/releases)来创建或编辑皮肤。<br>
 
 # 选项设置
 <img src="./Screenshots/option.jpg" style="zoom:80%;" /><br>
