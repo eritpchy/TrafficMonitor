@@ -406,6 +406,13 @@ namespace OpenHardwareMonitorApi
     {
         updateVisitor = gcnew UpdateVisitor();
         computer = gcnew Computer();
+        computer->IsCpuEnabled = true;
+        computer->IsGpuEnabled = true;
+        computer->IsMemoryEnabled = true;
+        computer->IsMotherboardEnabled = true;
+        computer->IsControllerEnabled = true;
+        computer->IsNetworkEnabled = true;
+        computer->IsStorageEnabled = true;
         computer->Open();
     }
 
