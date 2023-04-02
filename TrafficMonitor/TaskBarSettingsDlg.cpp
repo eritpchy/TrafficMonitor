@@ -10,6 +10,7 @@
 #include "DisplayTextSettingDlg.h"
 #include "SetItemOrderDlg.h"
 #include "WindowsSettingHelper.h"
+#include "TrafficMonitorDlg.h"
 
 // CTaskBarSettingsDlg 对话框
 
@@ -89,7 +90,7 @@ void CTaskBarSettingsDlg::ApplyDefaultStyle(int index)
     theApp.m_taskbar_default_style.ApplyDefaultStyle(index, m_data);
     DrawStaticColor();
     ((CButton*)GetDlgItem(IDC_SPECIFY_EACH_ITEM_COLOR_CHECK))->SetCheck(m_data.specify_each_item_color);
-    m_background_transparent_chk.SetCheck(IsTaskbarTransparent());
+    m_background_transparent_chk.SetCheck(m_data.IsTaskbarTransparent());
 }
 
 void CTaskBarSettingsDlg::ModifyDefaultStyle(int index)
@@ -113,15 +114,6 @@ void CTaskBarSettingsDlg::EnableControl()
     //EnableDlgCtrl(IDC_TASKBAR_WND_SNAP_CHECK, theApp.m_win_version.IsWindows11OrLater() && !m_data.tbar_wnd_on_left);
 }
 
-void CTaskBarSettingsDlg::SetTaskabrTransparent(bool transparent)
-{
-    CTaskbarDefaultStyle::SetTaskabrTransparent(transparent, m_data);
-}
-
-bool CTaskBarSettingsDlg::IsTaskbarTransparent()
-{
-    return CTaskbarDefaultStyle::IsTaskbarTransparent(m_data);
-}
 
 void CTaskBarSettingsDlg::SetControlMouseWheelEnable(bool enable)
 {
@@ -131,6 +123,8 @@ void CTaskBarSettingsDlg::SetControlMouseWheelEnable(bool enable)
     m_font_size_edit.SetMouseWheelEnable(enable);
     m_memory_display_combo.SetMouseWheelEnable(enable);
     m_item_space_edit.SetMouseWheelEnable(enable);
+    m_window_offset_top_edit.SetMouseWheelEnable(enable);
+    m_vertical_margin_edit.SetMouseWheelEnable(enable);
     m_net_speed_figure_max_val_edit.SetMouseWheelEnable(enable);
     m_net_speed_figure_max_val_unit_combo.SetMouseWheelEnable(enable);
 }
@@ -152,6 +146,8 @@ void CTaskBarSettingsDlg::DoDataExchange(CDataExchange* pDX)
     DDX_Control(pDX, IDC_AUTO_SET_BACK_COLOR_CHECK, m_auto_set_back_color_chk);
     DDX_Control(pDX, IDC_MEMORY_DISPLAY_COMBO, m_memory_display_combo);
     DDX_Control(pDX, IDC_ITEM_SPACE_EDIT, m_item_space_edit);
+    DDX_Control(pDX, IDC_WINDOW_OFFSET_TOP_EDIT, m_window_offset_top_edit);
+    DDX_Control(pDX, IDC_VERTICAL_MARGIN_EDIT, m_vertical_margin_edit);
     DDX_Control(pDX, IDC_NET_SPEED_FIGURE_MAX_VALUE_EDIT, m_net_speed_figure_max_val_edit);
     DDX_Control(pDX, IDC_NET_SPEED_FIGURE_MAX_VALUE_UNIT_COMBO, m_net_speed_figure_max_val_unit_combo);
 }
@@ -189,6 +185,8 @@ BEGIN_MESSAGE_MAP(CTaskBarSettingsDlg, CTabDlg)
     ON_BN_CLICKED(IDC_SET_ORDER_BUTTON, &CTaskBarSettingsDlg::OnBnClickedSetOrderButton)
     ON_BN_CLICKED(IDC_TASKBAR_WND_SNAP_CHECK, &CTaskBarSettingsDlg::OnBnClickedTaskbarWndSnapCheck)
     ON_EN_CHANGE(IDC_ITEM_SPACE_EDIT, &CTaskBarSettingsDlg::OnEnChangeItemSpaceEdit)
+    ON_EN_CHANGE(IDC_WINDOW_OFFSET_TOP_EDIT, &CTaskBarSettingsDlg::OnEnChangeWindowOffsetTopEdit)
+    ON_EN_CHANGE(IDC_VERTICAL_MARGIN_EDIT, &CTaskBarSettingsDlg::OnEnChangeVerticalMarginEdit)
     ON_BN_CLICKED(IDC_SHOW_NET_SPEED_FIGURE_CHECK, &CTaskBarSettingsDlg::OnBnClickedShowNetSpeedFigureCheck)
     ON_CBN_SELCHANGE(IDC_NET_SPEED_FIGURE_MAX_VALUE_UNIT_COMBO, &CTaskBarSettingsDlg::OnCbnSelchangeNetSpeedFigureMaxValueUnitCombo)
     ON_EN_CHANGE(IDC_NET_SPEED_FIGURE_MAX_VALUE_EDIT, &CTaskBarSettingsDlg::OnEnChangeNetSpeedFigureMaxValueEdit)
@@ -270,7 +268,7 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
     }
     ((CButton*)GetDlgItem(IDC_HIDE_PERCENTAGE_CHECK))->SetCheck(m_data.hide_percent);
     ((CButton*)GetDlgItem(IDC_SPECIFY_EACH_ITEM_COLOR_CHECK))->SetCheck(m_data.specify_each_item_color);
-    m_background_transparent_chk.SetCheck(IsTaskbarTransparent());
+    m_background_transparent_chk.SetCheck(m_data.IsTaskbarTransparent());
     m_atuo_adapt_light_theme_chk.SetCheck(m_data.auto_adapt_light_theme);
     m_auto_set_back_color_chk.SetCheck(m_data.auto_set_background_color);
     m_auto_set_back_color_chk.EnableWindow(theApp.m_win_version.IsWindows8OrLater());
@@ -309,6 +307,15 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
     CheckDlgButton(IDC_SHOW_DASHED_BOX, m_data.show_graph_dashed_box);
     m_item_space_edit.SetRange(0, 32);
     m_item_space_edit.SetValue(m_data.item_space);
+    CTaskBarDlg* taskbar_dlg{ CTrafficMonitorDlg::Instance()->GetTaskbarWindow() };
+    m_window_offset_top_edit.SetRange(-5, 20);
+    m_window_offset_top_edit.SetValue(m_data.window_offset_top);
+    if (taskbar_dlg != nullptr)
+        m_window_offset_top_edit.EnableWindow(taskbar_dlg->IsTasksbarOnTopOrBottom());
+    m_vertical_margin_edit.SetRange(-10, 10);
+    m_vertical_margin_edit.SetValue(m_data.vertical_margin);
+    if (taskbar_dlg != nullptr)
+        m_vertical_margin_edit.EnableWindow(taskbar_dlg->IsTasksbarOnTopOrBottom());
 
     //初始化内存显示方式下拉列表
     m_memory_display_combo.AddString(CCommon::LoadText(IDS_USAGE_PERCENTAGE));
@@ -459,7 +466,7 @@ void CTaskBarSettingsDlg::OnOK()
     m_data.digits_number = m_digit_number_combo.GetCurSel() + 3;
 
     bool is_taskbar_transparent_checked = (m_background_transparent_chk.GetCheck() != 0);
-    SetTaskabrTransparent(is_taskbar_transparent_checked);
+    m_data.SetTaskabrTransparent(is_taskbar_transparent_checked);
 
     SaveColorSettingToDefaultStyle();
 
@@ -528,7 +535,7 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
         CMFCColorDialogEx colorDlg(m_data.back_color, 0, this);
         if (colorDlg.DoModal() == IDOK)
         {
-            bool background_transparent = IsTaskbarTransparent();
+            bool background_transparent = m_data.IsTaskbarTransparent();
             m_data.back_color = colorDlg.GetColor();
             if (m_data.back_color == m_data.text_colors.begin()->second.label)
                 MessageBox(CCommon::LoadText(IDS_SAME_BACK_TEXT_COLOR_WARNING), NULL, MB_ICONWARNING);
@@ -685,7 +692,7 @@ void CTaskBarSettingsDlg::OnBnClickedBackgroundTransparentCheck()
 {
     // TODO: 在此添加控件通知处理程序代码
     bool checked = (m_background_transparent_chk.GetCheck() != 0);
-    SetTaskabrTransparent(checked);
+    m_data.SetTaskabrTransparent(checked);
     m_style_modified = true;
 }
 
@@ -770,6 +777,17 @@ void CTaskBarSettingsDlg::OnEnChangeItemSpaceEdit()
     m_data.ValidItemSpace();
 }
 
+void CTaskBarSettingsDlg::OnEnChangeWindowOffsetTopEdit()
+{
+    m_data.window_offset_top = m_window_offset_top_edit.GetValue();
+    m_data.ValidWindowOffsetTop();
+}
+
+void CTaskBarSettingsDlg::OnEnChangeVerticalMarginEdit()
+{
+    m_data.vertical_margin = m_vertical_margin_edit.GetValue();
+    m_data.ValidVerticalMargin();
+}
 
 BOOL CTaskBarSettingsDlg::OnCommand(WPARAM wParam, LPARAM lParam)
 {

@@ -45,6 +45,19 @@ CTrafficMonitorDlg::~CTrafficMonitorDlg()
     ::ReleaseDC(NULL, m_desktop_dc);
 }
 
+CTaskBarDlg* CTrafficMonitorDlg::GetTaskbarWindow() const
+{
+    if (IsTaskbarWndValid())
+        return m_tBarDlg;
+    else
+        return nullptr;
+}
+
+CTrafficMonitorDlg* CTrafficMonitorDlg::Instance()
+{
+    return dynamic_cast<CTrafficMonitorDlg*>(theApp.m_pMainWnd);
+}
+
 void CTrafficMonitorDlg::DoDataExchange(CDataExchange* pDX)
 {
     CDialog::DoDataExchange(pDX);
@@ -529,6 +542,8 @@ void CTrafficMonitorDlg::OpenTaskBarWnd()
     m_tBarDlg = new CTaskBarDlg;
 
     CSupportedRenderEnums supported_render_enums{};
+    // 强制初始化theApp.m_is_windows11_taskbar的值
+    CTaskBarDlg::GetShellTrayWndHandleAndSaveWindows11TaskBarExistenceInfoToTheApp();
     CTaskBarDlg::DisableRenderFeatureIfNecessary(supported_render_enums);
     auto render_type = supported_render_enums.GetAutoFitEnum();
     // WS_EX_LAYERED 和 WS_EX_NOREDIRECTIONBITMAP 可以共存，见微软示例代码
@@ -688,6 +703,7 @@ void CTrafficMonitorDlg::ApplySettings(COptionsDlg& optionsDlg)
     bool is_alow_out_of_border_changed = (optionsDlg.m_tab1_dlg.m_data.m_alow_out_of_border != theApp.m_main_wnd_data.m_alow_out_of_border);
     bool is_show_notify_icon_changed = (optionsDlg.m_tab3_dlg.m_data.show_notify_icon != theApp.m_general_data.show_notify_icon);
     bool is_connections_hide_changed = (optionsDlg.m_tab3_dlg.m_data.connections_hide.data() != theApp.m_general_data.connections_hide.data());
+    bool d2d_turned_on = (theApp.m_taskbar_data.disable_d2d && !optionsDlg.m_tab2_dlg.m_data.disable_d2d);
 
     theApp.m_main_wnd_data = optionsDlg.m_tab1_dlg.m_data;
     theApp.m_taskbar_data = optionsDlg.m_tab2_dlg.m_data;
@@ -697,6 +713,13 @@ void CTrafficMonitorDlg::ApplySettings(COptionsDlg& optionsDlg)
     CGeneralSettingsDlg::CheckTaskbarDisplayItem();
 
     SetTextFont();
+
+    //打开了D2D渲染后自动开启“背景透明”并关闭“根据任务栏颜色自动设置背景色”
+    if (d2d_turned_on)
+    {
+        theApp.m_taskbar_data.SetTaskabrTransparent(true);
+        theApp.m_taskbar_data.auto_set_background_color = false;
+    }
 
     //CTaskBarDlg::SaveConfig();
     if (IsTaskbarWndValid())
@@ -1058,7 +1081,9 @@ HCURSOR CTrafficMonitorDlg::OnQueryDragIcon()
 //计算指定秒数的时间内Monitor定时器会触发的次数
 static int GetMonitorTimerCount(int second)
 {
-    return second * 1000 / theApp.m_general_data.monitor_time_span;
+    int count = second * 1000 / theApp.m_general_data.monitor_time_span;
+    if (count <= 0) count = 1;
+    return count;
 }
 
 
@@ -1195,7 +1220,6 @@ UINT CTrafficMonitorDlg::MonitorThreadCallback(LPVOID dwUser)
         info.Replace(_T("<%cnt%>"), CCommon::IntToString(pThis->m_restart_cnt));
         CCommon::WriteLog(info, theApp.m_log_path.c_str());
     }
-
 
     if (pThis->m_monitor_time_cnt % GetMonitorTimerCount(3) == GetMonitorTimerCount(3) - 1)
     {
@@ -1601,10 +1625,10 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
                 theApp.SaveConfig();
                 restart_taskbar_dlg = true;
             }
-            bool is_taskbar_transparent{ CTaskbarDefaultStyle::IsTaskbarTransparent(theApp.m_taskbar_data) };
+            bool is_taskbar_transparent{ theApp.m_taskbar_data.IsTaskbarTransparent()};
             if (!is_taskbar_transparent)
             {
-                CTaskbarDefaultStyle::SetTaskabrTransparent(false, theApp.m_taskbar_data);
+                theApp.m_taskbar_data.SetTaskabrTransparent(false);
                 restart_taskbar_dlg = true;
             }
             if (restart_taskbar_dlg && IsTaskbarWndValid())
@@ -1682,9 +1706,9 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
             COLORREF color = ::GetPixel(m_desktop_dc, pointx, pointy);        //取任务栏窗口左侧1像素处的颜色作为背景色
             if (!CCommon::IsColorSimilar(color, theApp.m_taskbar_data.back_color) && (/*CWindowsSettingHelper::IsWindows10LightTheme() ||*/ color != 0))
             {
-                bool is_taskbar_transparent{ CTaskbarDefaultStyle::IsTaskbarTransparent(theApp.m_taskbar_data) };
+                bool is_taskbar_transparent{ theApp.m_taskbar_data.IsTaskbarTransparent()};
                 theApp.m_taskbar_data.back_color = color;
-                CTaskbarDefaultStyle::SetTaskabrTransparent(is_taskbar_transparent, theApp.m_taskbar_data);
+                theApp.m_taskbar_data.SetTaskabrTransparent(is_taskbar_transparent);
                 if (is_taskbar_transparent)
                     m_tBarDlg->ApplyWindowTransparentColor();
             }

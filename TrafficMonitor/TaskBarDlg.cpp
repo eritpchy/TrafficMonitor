@@ -134,7 +134,7 @@ void CTaskBarDlg::ShowInfo(CDC* pDC)
                       this->m_taskbar_draw_common_window_support.Get(),
                       this->m_d2d1_device_context_support.Get(),
                       d2d_size);
-                  // 仅透明时启用此渲染器，则默认初始化为全黑，alpha=1
+                  // 仅透明时，且UpdateLayeredWindowIndirect失败时，启用此渲染器，默认初始化为全黑，alpha=1
                   p_draw_common->FillRect(draw_rect, 0x00000000, 1);
                   p_draw_common->SetFont(&m_font);
                   p_draw_common->SetBackColor(theApp.m_taskbar_data.back_color);
@@ -158,7 +158,8 @@ void CTaskBarDlg::ShowInfo(CDC* pDC)
                   p_draw_common->Create(
                       this->m_taskbar_draw_common_window_support.Get(),
                       this->m_d2d1_device_context_support.Get(),
-                      d2d_size); // 仅透明时启用此渲染器，则默认初始化为全黑，alpha=1
+                      d2d_size);
+                  // 仅透明时启用此渲染器，默认初始化为全黑，alpha=1
                   p_draw_common->FillRect(draw_rect, 0x00000000, 1);
                   p_draw_common->SetFont(&m_font);
                   p_draw_common->SetBackColor(theApp.m_taskbar_data.back_color);
@@ -206,14 +207,14 @@ void CTaskBarDlg::ShowInfo(CDC* pDC)
                 //在index为奇数时同时绘制两个项目
                 if (index % 2 == 1)
                 {
-                    CRect item_rect_up; //上面一个项目的矩形区域
+                    CRect item_rect_up;     //上面一个项目的矩形区域
                     if (index > 0)
-                        item_rect_up.MoveToXY(item_rect.right + DPI(theApp.m_taskbar_data.item_space), 0);
+                        item_rect_up.MoveToXY(item_rect.right + DPI(theApp.m_taskbar_data.item_space), -DPI(theApp.m_taskbar_data.vertical_margin));
                     item_rect.left = item_rect_up.left;
                     item_rect.top = (m_window_height - TASKBAR_WND_HEIGHT / 2);
                     //确定窗口大小
                     item_rect_up.bottom = item_rect.top - 1;
-                    item_rect.bottom = m_window_height;
+                    item_rect.bottom = m_window_height + DPI(theApp.m_taskbar_data.vertical_margin);
                     int width = max(iter->item_width.TotalWidth(), last_item_width.TotalWidth());
                     item_rect.right = item_rect.left + width;
                     item_rect_up.right = item_rect_up.left + width;
@@ -563,7 +564,7 @@ void CTaskBarDlg::MoveWindow(CRect rect)
 
 void CTaskBarDlg::DisableRenderFeatureIfNecessary(CSupportedRenderEnums& ref_supported_render_enums)
 {
-    bool is_transparent = CTaskbarDefaultStyle::IsTaskbarTransparent(theApp.m_taskbar_data);
+    bool is_transparent = theApp.m_taskbar_data.IsTaskbarTransparent();
     // UpdateLayeredWindowIndirect失败则禁用D2D
     if (theApp.m_taskbar_data.update_layered_window_error_code)
     {
@@ -574,6 +575,22 @@ void CTaskBarDlg::DisableRenderFeatureIfNecessary(CSupportedRenderEnums& ref_sup
     {
         ref_supported_render_enums.EnableDefaultOnly();
     }
+}
+
+HWND CTaskBarDlg::GetShellTrayWndHandleAndSaveWindows11TaskBarExistenceInfoToTheApp() noexcept
+{
+    auto result = ::FindWindow(L"Shell_TrayWnd", NULL);
+    // 在“Shell_TrayWnd”的子窗口找到类名为“Windows.UI.Composition.DesktopWindowContentBridge”的窗口则认为是Windows11的任务栏
+    if (theApp.m_win_version.IsWindows11OrLater())
+    {
+        theApp.m_is_windows11_taskbar =
+            (::FindWindowExW(result, 0, L"Windows.UI.Composition.DesktopWindowContentBridge", NULL) != NULL);
+    }
+    else
+    {
+        theApp.m_is_windows11_taskbar = false;
+    }
+    return result;
 }
 
 void CTaskBarDlg::TryDrawStatusBar(IDrawCommon& drawer, const CRect& rect_bar, int usage_percent)
@@ -638,24 +655,11 @@ bool CTaskBarDlg::AdjustWindowPos()
                     //{
                     if (theApp.m_taskbar_data.tbar_wnd_snap)
                     {
-                        int taskbar_btn_width = DPI(44);      //Win11任务栏“运行中的程序”左侧4个按钮（开始、搜索、任务视图、聊天）的宽度，每个按钮44像素。（“开始”按钮总是显示）
-                        if (CWindowsSettingHelper::IsTaskbarSearchBtnShown())
-                        {
-                            if (theApp.m_win_version.IsWindows11BigSearchButton())
-                                taskbar_btn_width += DPI(107);      //最新版本的Windows11的搜索按钮比其他按钮宽
-                            else
-                                taskbar_btn_width += DPI(44);
-                        }
-                        if (CWindowsSettingHelper::IsTaskbarTaskViewBtnShown())
-                        {
-                            taskbar_btn_width += DPI(44);
-                        }
-                        if (CWindowsSettingHelper::IsTaskbarChartBtnShown())
-                        {
-                            taskbar_btn_width += DPI(44);
-                        }
+                        HWND m_hStart = ::FindWindowEx(m_hTaskbar, nullptr, L"Start", NULL);
+                        CRect m_rcStart;
+                        ::GetWindowRect(m_hStart, m_rcStart);
 
-                        m_rect.MoveToX(m_rcMin.left - m_rect.Width() - 2 - taskbar_btn_width);
+                        m_rect.MoveToX(m_rcStart.left - m_rect.Width() - 2);
                     }
                     else
                     {
@@ -676,7 +680,9 @@ bool CTaskBarDlg::AdjustWindowPos()
                     m_rect.MoveToX(m_left_space);
                 }
             }
-            m_rect.MoveToY((m_rcTaskbar.Height() - m_rect.Height()) / 2);
+            //注：这里加上(m_rcTaskbar.Height() - m_rcBar.Height())用于修正Windows11 build 22621版本后触屏设备任务栏窗口位置不正确的问题。
+            //在这种情况下m_rcTaskbar的高度要大于m_rcBar的高度，正常情况下，它们的高度相同
+            m_rect.MoveToY((m_rcBar.Height() - m_rect.Height()) / 2 + (m_rcTaskbar.Height() - m_rcBar.Height()) + DPI(theApp.m_taskbar_data.window_offset_top));
             if (theApp.m_taskbar_data.horizontal_arrange && theApp.m_win_version.IsWindows7())
                 m_rect.MoveToY(m_rect.top + DPI(1));
             MoveWindow(m_rect);
@@ -779,6 +785,11 @@ void CTaskBarDlg::SetDPI(UINT dpi)
 UINT CTaskBarDlg::DPI(UINT pixel) const
 {
     return m_taskbar_dpi * pixel / 96;
+}
+
+int CTaskBarDlg::DPI(int pixel) const
+{
+    return static_cast<int>(m_taskbar_dpi) * pixel / 96;
 }
 
 void CTaskBarDlg::DPI(CRect& rect) const
@@ -1189,17 +1200,11 @@ BOOL CTaskBarDlg::OnInitDialog()
 
     m_pDC = GetDC();
 
-    m_hTaskbar = ::FindWindow(L"Shell_TrayWnd", NULL); //寻找类名是Shell_TrayWnd的窗口句柄
+    m_hTaskbar = GetShellTrayWndHandleAndSaveWindows11TaskBarExistenceInfoToTheApp(); //寻找类名是Shell_TrayWnd的窗口句柄，同时记录Windows11任务栏是否存在
     m_hBar = ::FindWindowEx(m_hTaskbar, 0, L"ReBarWindow32", NULL); //寻找二级容器的句柄
     m_hMin = ::FindWindowEx(m_hBar, 0, L"MSTaskSwWClass", NULL);    //寻找最小化窗口的句柄
 
     m_hNotify = ::FindWindowEx(m_hTaskbar, 0, L"TrayNotifyWnd", NULL);
-
-    //在“Shell_TrayWnd”的子窗口找到类名为“Windows.UI.Composition.DesktopWindowContentBridge”的窗口则认为是Windows11的任务栏
-    if (theApp.m_win_version.IsWindows11OrLater())
-    {
-        theApp.m_is_windows11_taskbar = (::FindWindowExW(m_hTaskbar, 0, L"Windows.UI.Composition.DesktopWindowContentBridge", NULL) != NULL);
-    }
 
     //设置窗口透明色
     ApplyWindowTransparentColor();
@@ -1532,6 +1537,15 @@ void CTaskBarDlg::OnPaint()
                     ex,
                     [&]()
                     { p_device_context_support_wrapper->Get().RequestD2D1DeviceRecreate(ex.GetHResult()); });
+            });
+    }
+    catch (CDCompositionException& ex)
+    {
+        DrawCommonHelper::DefaultD2DDrawCommonExceptionHandler{ex}(
+            [p_device_context_support_wrapper = &this->m_d2d1_device_context_support](CHResultException& ex)
+            {
+                p_device_context_support_wrapper->Get().RequestDCompositionDeviceRecreate(ex.GetHResult());
+                return true;
             });
     }
     catch (CHResultException& ex)
