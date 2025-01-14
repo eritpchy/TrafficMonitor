@@ -213,14 +213,20 @@ CString CTrafficMonitorDlg::GetMouseTipsInfo()
 
 void CTrafficMonitorDlg::SetTransparency()
 {
-    SetWindowLong(m_hWnd, GWL_EXSTYLE, GetWindowLong(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-    SetLayeredWindowAttributes(0, theApp.m_cfg_data.m_transparency * 255 / 100, LWA_ALPHA);  //透明度取值范围为0~255
+    SetTransparency(theApp.m_cfg_data.m_transparency);
 }
 
 void CTrafficMonitorDlg::SetTransparency(int transparency)
 {
     SetWindowLong(m_hWnd, GWL_EXSTYLE, GetWindowLong(m_hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-    SetLayeredWindowAttributes(0, transparency * 255 / 100, LWA_ALPHA);  //透明度取值范围为0~255
+    if (m_skin.IsPNG())
+    {
+        m_skin.SetAlpha(transparency * 255 / 100);
+    }
+    else
+    {
+        SetLayeredWindowAttributes(0, transparency * 255 / 100, LWA_ALPHA);  //透明度取值范围为0~255
+    }
 }
 
 void CTrafficMonitorDlg::SetAlwaysOnTop()
@@ -973,6 +979,25 @@ BOOL CTrafficMonitorDlg::OnInitDialog()
     theApp.InitMenuResourse();
     //theApp.UpdateTaskbarWndMenu();
 
+    //初始化皮肤
+    CCommon::GetFiles((theApp.m_skin_path + L"\\*").c_str(), [&](const wstring& file_name)
+        {
+            wstring file_name1 = L'\\' + file_name;
+            if (CCommon::IsFolder(theApp.m_skin_path + file_name1))
+                m_skins.push_back(file_name1);
+        });
+    if (m_skins.empty())
+        m_skins.push_back(L"");
+    m_skin_selected = 0;
+    for (unsigned int i{}; i < m_skins.size(); i++)
+    {
+        if (m_skins[i] == theApp.m_cfg_data.m_skin_name)
+            m_skin_selected = i;
+    }
+
+    //根据当前选择的皮肤获取布局数据
+    LoadSkinLayout();
+
     //设置窗口透明度
     SetTransparency();
 
@@ -1018,25 +1043,6 @@ BOOL CTrafficMonitorDlg::OnInitDialog()
     SetTimer(MONITOR_TIMER, theApp.m_general_data.monitor_time_span, NULL);
     //m_timer.CreateTimer((DWORD_PTR)this, theApp.m_general_data.monitor_time_span, MonitorThreadCallback);
 
-
-    //初始化皮肤
-    CCommon::GetFiles((theApp.m_skin_path + L"\\*").c_str(), [&](const wstring& file_name)
-        {
-            wstring file_name1 = L'\\' + file_name;
-            if (CCommon::IsFolder(theApp.m_skin_path + file_name1))
-                m_skins.push_back(file_name1);
-        });
-    if (m_skins.empty())
-        m_skins.push_back(L"");
-    m_skin_selected = 0;
-    for (unsigned int i{}; i < m_skins.size(); i++)
-    {
-        if (m_skins[i] == theApp.m_cfg_data.m_skin_name)
-            m_skin_selected = i;
-    }
-
-    //根据当前选择的皮肤获取布局数据
-    LoadSkinLayout();
 
     //初始化窗口位置
     SetItemPosition();
@@ -2416,6 +2422,12 @@ void CTrafficMonitorDlg::OnChangeSkin()
         }
         SetItemPosition();
         Invalidate(FALSE);      //更换皮肤后立即刷新窗口信息
+        //重新设置WS_EX_LAYERED样式，以解决在png皮肤和bmp皮肤之间切换时显示不正常的问题
+        //清除窗口的分层样式
+        SetWindowLong(m_hWnd, GWL_EXSTYLE, GetWindowLong(m_hWnd, GWL_EXSTYLE) & ~WS_EX_LAYERED);
+        //重新设置透明度
+        SetTransparency();
+
         theApp.SaveConfig();
     }
 }

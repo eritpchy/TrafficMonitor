@@ -12,6 +12,8 @@
 #include "auto_start_helper.h"
 #include "AppAlreadyRuningDlg.h"
 #include "WindowsSettingHelper.h"
+#include "winrt/base.h"
+#include <gdiplus.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -41,6 +43,7 @@ CTrafficMonitorApp::CTrafficMonitorApp()
     // TODO: 在此处添加构造代码，
     // 将所有重要的初始化放置在 InitInstance 中
     CRASHREPORT::StartCrashReport();
+    winrt::init_apartment();
 }
 
 void CTrafficMonitorApp::LoadConfig()
@@ -1097,6 +1100,10 @@ BOOL CTrafficMonitorApp::InitInstance()
     CTest::Test();
 #endif
 
+    //初始化GDI+
+    Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+    GdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, NULL);
+
     SendSettingsToPlugin();
 
     CTrafficMonitorDlg dlg;
@@ -1123,6 +1130,9 @@ BOOL CTrafficMonitorApp::InitInstance()
     {
         delete pShellManager;
     }
+
+    // 释放GDI+
+    Gdiplus::GdiplusShutdown(m_gdiplusToken);
 
 #ifndef _AFXDLL
     ControlBarCleanUp();
